@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from 'react'
 import { Activity, AlertTriangle, BarChart3, RefreshCw, Shield, Wallet } from 'lucide-react'
 import { fetchWalletSnapshot } from './solana'
+import { buildCandidateActions, buildTokenRiskFlags } from './risk'
+import { getWatchWallets } from './watchWallets'
 
 const demoPositions = [
   { symbol: 'SOL', allocation: 44, pnl: 6.2, note: 'Core liquidity anchor' },
@@ -50,6 +52,9 @@ export default function App() {
   )
 
   const riskBand = healthScore >= 80 ? 'Controlled' : healthScore >= 60 ? 'Caution' : 'Fragile'
+  const tokenRiskRows = useMemo(() => buildTokenRiskFlags(snapshot?.tokens || []), [snapshot])
+  const candidateActions = useMemo(() => buildCandidateActions(snapshot, totalCapital), [snapshot, totalCapital])
+  const watchWallets = useMemo(() => getWatchWallets(), [])
 
   async function refreshWallet() {
     setIsLoading(true)
@@ -142,7 +147,7 @@ export default function App() {
                   {snapshot ? <>
                     <th>Mint</th>
                     <th>Amount</th>
-                    <th>Account</th>
+                    <th>Risk</th>
                     <th>Operator note</th>
                   </> : <>
                     <th>Asset</th>
@@ -153,12 +158,12 @@ export default function App() {
                 </tr>
               </thead>
               <tbody>
-                {snapshot ? snapshot.tokens.slice(0, 10).map((row) => (
+                {snapshot ? tokenRiskRows.slice(0, 10).map((row) => (
                   <tr key={row.account}>
                     <td>{row.mintShort}</td>
                     <td>{row.amount.toLocaleString(undefined, { maximumFractionDigits: 6 })}</td>
-                    <td>{row.account.slice(0, 4)}…{row.account.slice(-4)}</td>
-                    <td>Needs pricing/liquidity score before action</td>
+                    <td className={row.riskLevel === 'Low' ? 'positive' : row.riskLevel === 'Medium' ? 'warning' : 'negative'}>{row.riskLevel}</td>
+                    <td>{row.note}</td>
                   </tr>
                 )) : demoPositions.map((row) => (
                   <tr key={row.symbol}>
@@ -200,6 +205,38 @@ export default function App() {
                 <span>
                   <div>{item.action}</div>
                   <div className={item.risk === 'Low' ? 'positive' : item.risk === 'Medium' ? 'warning' : 'negative'}>{item.risk} risk</div>
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <div className="card span-6">
+            <h2>Candidate Actions</h2>
+            {candidateActions.map((row) => (
+              <div className="kv" key={row.title}>
+                <span>
+                  <strong>{row.title}</strong><br />
+                  <span className="small">Approval-gated recommendation</span>
+                </span>
+                <span>
+                  <div>{row.action}</div>
+                  <div className={row.priority === 'Low' ? 'positive' : row.priority === 'Medium' ? 'warning' : 'negative'}>{row.priority} priority</div>
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <div className="card span-6">
+            <h2>Tracked Winning Wallets</h2>
+            {watchWallets.map((row) => (
+              <div className="kv" key={row.label}>
+                <span>
+                  <strong>{row.label}</strong><br />
+                  <span className="small">{row.address} · {row.style}</span>
+                </span>
+                <span>
+                  <div>Signal score: <strong>{row.score}</strong></div>
+                  <div className={row.score >= 70 ? 'positive' : row.score >= 50 ? 'warning' : 'negative'}>{row.winRate}% win rate</div>
                 </span>
               </div>
             ))}
