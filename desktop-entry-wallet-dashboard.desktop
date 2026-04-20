@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Wallet Dashboard
+Comment=Open the local Solana wallet dashboard
+Exec=bash -lc '/home/ubuntu/.openclaw/workspace/scripts/start-wallet-dashboard.sh && xdg-open http://localhost:4173/'
+Icon=utilities-terminal
+Terminal=false
+Categories=Finance;Utility;
+StartupNotify=true
