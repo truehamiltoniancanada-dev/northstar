@@ -1,7 +1,7 @@
 # USER.md - About Your Human
 
 - **Name:**
-- **What to call them:** Steven
+- **What to call them:** Max
 - **Pronouns:**
 - **Timezone:** UTC
 - **Notes:** Prefers direct execution over setup chatter. Asked for continuity to be set up immediately.
