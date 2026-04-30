@@ -1,4 +1,7 @@
 {
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "dev:api": "node server.js",
