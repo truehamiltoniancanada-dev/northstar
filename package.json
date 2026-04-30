@@ -1,1 +1,21 @@
-{"scripts":{"dev":"vite --host 0.0.0.0","build":"vite build","preview":"vite preview --host 0.0.0.0"},"dependencies":{"@solana/web3.js":"latest","@vitejs/plugin-react":"latest","vite":"latest","react":"latest","react-dom":"latest","lucide-react":"latest"},"devDependencies":{}}
+{
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "dev:api": "node server.js",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "start:api": "node server.js"
+  },
+  "dependencies": {
+    "@solana/web3.js": "latest",
+    "@vitejs/plugin-react": "latest",
+    "better-sqlite3": "^11.10.0",
+    "lucide-react": "latest",
+    "openai": "^4.104.0",
+    "pg": "^8.13.3",
+    "react": "latest",
+    "react-dom": "latest",
+    "stripe": "^18.1.1",
+    "vite": "latest"
+  }
+}
