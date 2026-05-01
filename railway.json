@@ -19,7 +19,7 @@
         "src": "."
       },
       "start": {
-        "command": "node server.js"
+        "command": "./scripts/start-with-openclaw-hook.sh"
       }
     }
   },
@@ -27,6 +27,6 @@
     "numReplicas": 1,
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10,
-    "startCommand": "node server.js"
+    "startCommand": "./scripts/start-with-openclaw-hook.sh"
   }
 }
