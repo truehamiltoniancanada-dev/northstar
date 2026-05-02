@@ -25,6 +25,8 @@ const sendgridApiKey = env.SENDGRID_API_KEY || process.env.SENDGRID_API_KEY || '
 const authWindowMs = Number(env.AUTH_RATE_LIMIT_WINDOW_MS || process.env.AUTH_RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000)
 const authMaxRequests = Number(env.AUTH_RATE_LIMIT_MAX || process.env.AUTH_RATE_LIMIT_MAX || 5)
 const databaseUrl = env.DATABASE_URL || process.env.DATABASE_URL || ''
+const deployWebhookUrl = env.DEPLOY_WEBHOOK_URL || process.env.DEPLOY_WEBHOOK_URL || ''
+const deployWebhookToken = env.DEPLOY_WEBHOOK_TOKEN || process.env.DEPLOY_WEBHOOK_TOKEN || ''
 
 const stripe = stripeSecretKey ? new Stripe(stripeSecretKey) : null
 const openai = openAiApiKey ? new OpenAI({ apiKey: openAiApiKey }) : null
@@ -101,6 +103,17 @@ function createSqliteAdapter() {
       created_at TEXT NOT NULL,
       expires_at TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS deploy_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      status TEXT NOT NULL,
+      project TEXT NOT NULL,
+      branch TEXT,
+      commit_sha TEXT,
+      build_id TEXT,
+      url TEXT,
+      created_at TEXT NOT NULL
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_email_leads_email ON email_leads(email);
     CREATE TABLE IF NOT EXISTS auth_challenges (
       email TEXT PRIMARY KEY,
       code_hash TEXT NOT NULL,
@@ -132,9 +145,59 @@ function createSqliteAdapter() {
   }
 }
 
-function createPostgresAdapter(connectionString) {
+async function createPostgresAdapter(connectionString) {
   const { Pool } = pg
   const pool = new Pool({ connectionString })
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      email TEXT PRIMARY KEY,
+      membership_active INTEGER NOT NULL DEFAULT 0,
+      stripe_customer_id TEXT,
+      stripe_subscription_id TEXT,
+      subscription_status TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS email_leads (
+      id SERIAL PRIMARY KEY,
+      email TEXT NOT NULL UNIQUE,
+      incentive TEXT NOT NULL,
+      captured_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS chat_messages (
+      id SERIAL PRIMARY KEY,
+      email TEXT NOT NULL,
+      listener_id TEXT NOT NULL,
+      role TEXT NOT NULL,
+      label TEXT NOT NULL,
+      text TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS sessions (
+      token TEXT PRIMARY KEY,
+      email TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      expires_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS deploy_events (
+      id SERIAL PRIMARY KEY,
+      status TEXT NOT NULL,
+      project TEXT NOT NULL,
+      branch TEXT,
+      commit_sha TEXT,
+      build_id TEXT,
+      url TEXT,
+      created_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS auth_challenges (
+      email TEXT PRIMARY KEY,
+      code_hash TEXT NOT NULL,
+      attempts INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      expires_at TEXT NOT NULL
+    );
+  `)
 
   return {
     async run(sql, ...params) {
@@ -231,7 +294,7 @@ function getSessionFromRequest(req) {
 function requireSession(req, res) {
   const session = getSessionFromRequest(req)
   if (!session) {
-    json(res, 401, { error: 'Valid session required' })
+    json(req, res, 401, { error: 'Valid session required' })
     return null
   }
   return session
@@ -358,6 +421,12 @@ async function deliverVerificationCode(email, code) {
 // AI reply generation
 // ---------------------------------------------------------------------------
 
+const crisisKeywords = ['suicide', 'kill myself', 'want to die', 'end it all'];
+function detectCrisis(text) {
+  const lower = String(text).toLowerCase();
+  return crisisKeywords.some(kw => lower.includes(kw));
+}
+
 function buildSystemPrompt(listenerId) {
   if (listenerId === 'steady') {
     return 'You are Northstar in Steady Presence mode. Respond calmly, warmly, and clearly. Do not roleplay a therapist. Be emotionally supportive, grounded, brief, and practical. Never claim to provide emergency care or diagnosis.'
@@ -467,21 +536,23 @@ function updateUserSubscription(email, customerId, subscriptionId, status) {
 // HTTP utilities
 // ---------------------------------------------------------------------------
 
-function buildCorsHeaders() {
+function buildCorsHeaders(req) {
+  const origin = req.headers.origin;
+  const allowedOrigin = corsOrigin === '*' ? origin || '*' : corsOrigin.split(',').includes(origin) ? origin : corsOrigin;
   return {
-    'Access-Control-Allow-Origin': corsOrigin,
+    'Access-Control-Allow-Origin': allowedOrigin,
     'Access-Control-Allow-Headers': 'Content-Type, Stripe-Signature, Authorization',
     'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
   }
 }
 
-function json(res, status, body) {
-  res.writeHead(status, { 'Content-Type': 'application/json', ...buildCorsHeaders() })
+function json(req, res, status, body) {
+  res.writeHead(status, { 'Content-Type': 'application/json', ...buildCorsHeaders(req) })
   res.end(JSON.stringify(body))
 }
 
-function send(res, status, body, headers = {}) {
-  res.writeHead(status, { ...buildCorsHeaders(), ...headers })
+function send(req, res, status, body, headers = {}) {
+  res.writeHead(status, { ...buildCorsHeaders(req), ...headers })
   res.end(body)
 }
 
@@ -549,14 +620,14 @@ function sanitizeListenerId(value) {
 
 const server = http.createServer(async (req, res) => {
   if (req.method === 'OPTIONS') {
-    return send(res, 204, '')
+    return send(req, res, 204, '')
   }
 
   const url = new URL(req.url || '/', `http://${req.headers.host}`)
 
   // GET /api/health
   if (req.method === 'GET' && url.pathname === '/api/health') {
-    return json(res, 200, {
+    return json(req, res, 200, {
       ok: true,
       apiBaseUrl,
       stripeConfigured: Boolean(stripe && stripePriceId),
@@ -574,25 +645,25 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'POST' && url.pathname === '/api/auth/request-code') {
     const retryAfter = enforceRateLimit(req, 'auth-request-code')
     if (retryAfter) {
-      return json(res, 429, { error: `Too many code requests. Try again in ${retryAfter} seconds.` })
+      return json(req, res, 429, { error: `Too many code requests. Try again in ${retryAfter} seconds.` })
     }
     try {
       const body = await readJsonBody(req)
       const email = normalizeEmail(body.email)
       if (!isValidEmail(email)) {
-        return json(res, 400, { error: 'Valid email required' })
+        return json(req, res, 400, { error: 'Valid email required' })
       }
       upsertUser(email)
       const code = createChallenge(email)
       const delivery = await deliverVerificationCode(email, code)
-      return json(res, 200, {
+      return json(req, res, 200, {
         ok: true,
         challengeSent: true,
         delivery,
         devCode: devAuthCodes ? code : undefined,
       })
     } catch (error) {
-      return json(res, 400, { error: error.message })
+      return json(req, res, 400, { error: error.message })
     }
   }
 
@@ -600,24 +671,24 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'POST' && url.pathname === '/api/auth/verify-code') {
     const retryAfter = enforceRateLimit(req, 'auth-verify-code')
     if (retryAfter) {
-      return json(res, 429, { error: `Too many verification attempts. Try again in ${retryAfter} seconds.` })
+      return json(req, res, 429, { error: `Too many verification attempts. Try again in ${retryAfter} seconds.` })
     }
     try {
       const body = await readJsonBody(req)
       const email = normalizeEmail(body.email)
       const code = String(body.code || '').trim()
       if (!isValidEmail(email)) {
-        return json(res, 400, { error: 'Valid email required' })
+        return json(req, res, 400, { error: 'Valid email required' })
       }
       if (!/^\d{6}$/.test(code)) {
-        return json(res, 400, { error: 'Valid 6-digit code required' })
+        return json(req, res, 400, { error: 'Valid 6-digit code required' })
       }
       verifyChallenge(email, code)
       const user = upsertUser(email)
       const token = createSession(email)
-      return json(res, 200, { ok: true, token, user: serializeUser(user) })
+      return json(req, res, 200, { ok: true, token, user: serializeUser(user) })
     } catch (error) {
-      return json(res, 400, { error: error.message })
+      return json(req, res, 400, { error: error.message })
     }
   }
 
@@ -626,14 +697,14 @@ const server = http.createServer(async (req, res) => {
     const session = requireSession(req, res)
     if (!session) return
     db.run('DELETE FROM sessions WHERE token = $1', session.token)
-    return json(res, 200, { ok: true })
+    return json(req, res, 200, { ok: true })
   }
 
   if (req.method === 'GET' && url.pathname === '/api/auth/status') {
     const session = requireSession(req, res)
     if (!session) return
     const user = getUser(session.email)
-    return json(res, 200, { ok: true, user: serializeUser(user) })
+    return json(req, res, 200, { ok: true, user: serializeUser(user) })
   }
 
   // GET /api/chat/history
@@ -641,7 +712,7 @@ const server = http.createServer(async (req, res) => {
     const session = requireSession(req, res)
     if (!session) return
     const listenerId = sanitizeListenerId(String(url.searchParams.get('listenerId') || 'steady'))
-    return json(res, 200, { ok: true, messages: getChatHistory(session.email, listenerId) })
+    return json(req, res, 200, { ok: true, messages: getChatHistory(session.email, listenerId) })
   }
 
   // POST /api/billing/checkout-session
@@ -650,9 +721,9 @@ const server = http.createServer(async (req, res) => {
     if (!session) return
     try {
       const checkout = await createCheckoutSession(session.email)
-      return json(res, 200, { ok: true, url: checkout.url })
+      return json(req, res, 200, { ok: true, url: checkout.url })
     } catch (error) {
-      return json(res, 400, { error: error.message })
+      return json(req, res, 400, { error: error.message })
     }
   }
 
@@ -662,20 +733,20 @@ const server = http.createServer(async (req, res) => {
     if (!session) return
     try {
       const portal = await createBillingPortalSession(session.email)
-      return json(res, 200, { ok: true, url: portal.url })
+      return json(req, res, 200, { ok: true, url: portal.url })
     } catch (error) {
-      return json(res, 400, { error: error.message })
+      return json(req, res, 400, { error: error.message })
     }
   }
 
   // POST /api/billing/webhook
   if (req.method === 'POST' && url.pathname === '/api/billing/webhook') {
     if (!stripe || !stripeWebhookSecret) {
-      return json(res, 500, { error: 'Stripe webhook is not configured yet' })
+      return json(req, res, 500, { error: 'Stripe webhook is not configured yet' })
     }
     const signature = req.headers['stripe-signature']
     if (!signature) {
-      return json(res, 400, { error: 'Missing Stripe signature' })
+      return json(req, res, 400, { error: 'Missing Stripe signature' })
     }
     try {
       const rawBody = await readRawBody(req)
@@ -695,9 +766,32 @@ const server = http.createServer(async (req, res) => {
           updateUserSubscription(row.email, customerId, String(subscription.id || ''), String(subscription.status || 'inactive'))
         }
       }
-      return json(res, 200, { received: true })
+      return json(req, res, 200, { received: true })
     } catch (error) {
-      return json(res, 400, { error: error.message })
+      return json(req, res, 400, { error: error.message })
+    }
+  }
+
+  // POST /api/deploy-events
+  if (req.method === 'POST' && url.pathname === '/api/deploy-events') {
+    const authHeader = req.headers.authorization || '';
+    if (!deployWebhookToken || authHeader !== `Bearer ${deployWebhookToken}`) {
+      return json(req, res, 401, { error: 'Unauthorized' });
+    }
+    try {
+      const body = await readJsonBody(req);
+      db.run('INSERT INTO deploy_events (status, project, branch, commit_sha, build_id, url, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+        body.status || 'unknown',
+        body.project || 'unknown',
+        body.branch || '',
+        body.commit || '',
+        body.buildId || '',
+        body.url || '',
+        new Date().toISOString()
+      );
+      return json(req, res, 200, { ok: true });
+    } catch (error) {
+      return json(req, res, 400, { error: error.message });
     }
   }
 
@@ -710,18 +804,31 @@ const server = http.createServer(async (req, res) => {
       const listenerId = sanitizeListenerId(String(body.listenerId || 'steady'))
       const text = String(body.message || '').trim()
       if (!text) {
-        return json(res, 400, { error: 'Message required' })
+        return json(req, res, 400, { error: 'Message required' })
       }
       const user = getUser(session.email)
       if (!user || !user.membership_active) {
-        return json(res, 403, { error: 'Active membership required' })
+        return json(req, res, 403, { error: 'Active membership required' })
       }
       saveChatMessage(session.email, listenerId, 'user', 'You', text)
-      const { reply, source } = await generateReply(session.email, listenerId, text)
+      
+      let escalated = false;
+      let reply, source;
+      
+      if (detectCrisis(text)) {
+        escalated = true;
+        reply = "It sounds like you are going through a really difficult time. Please reach out to a crisis lifeline like 988 in the US and Canada, or text HOME to 741741. You don't have to be alone in this.";
+        source = "escalation";
+      } else {
+        const result = await generateReply(session.email, listenerId, text);
+        reply = result.reply;
+        source = result.source;
+      }
+      
       saveChatMessage(session.email, listenerId, 'assistant', listenerId, reply)
-      return json(res, 200, { ok: true, reply, source })
+      return json(req, res, 200, { ok: true, reply, source, escalated })
     } catch (error) {
-      return json(res, 400, { error: error.message })
+      return json(req, res, 400, { error: error.message })
     }
   }
 
@@ -731,7 +838,7 @@ const server = http.createServer(async (req, res) => {
       const body = await readJsonBody(req)
       const email = normalizeEmail(body.email)
       if (!isValidEmail(email)) {
-        return json(res, 400, { error: 'Valid email required' })
+        return json(req, res, 400, { error: 'Valid email required' })
       }
       const record = {
         email,
@@ -739,16 +846,16 @@ const server = http.createServer(async (req, res) => {
         capturedAt: new Date().toISOString(),
       }
       db.run(
-        'INSERT INTO email_leads (email, incentive, captured_at) VALUES ($1, $2, $3)',
+        'INSERT INTO email_leads (email, incentive, captured_at) VALUES ($1, $2, $3) ON CONFLICT (email) DO UPDATE SET incentive = EXCLUDED.incentive, captured_at = EXCLUDED.captured_at',
         record.email, record.incentive, record.capturedAt
       )
-      return json(res, 200, { ok: true, record })
+      return json(req, res, 200, { ok: true, record })
     } catch (error) {
-      return json(res, 400, { error: error.message })
+      return json(req, res, 400, { error: error.message })
     }
   }
 
-  return json(res, 404, { error: 'Not found' })
+  return json(req, res, 404, { error: 'Not found' })
 })
 
 server.listen(port, () => {

@@ -16,5 +16,5 @@ USER.md
 desktop-entry-wallet-*
 home.html
 index.html
-scripts/
 state/
+/.vscode
