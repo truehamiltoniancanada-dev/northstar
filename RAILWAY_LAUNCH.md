@@ -1,0 +1,118 @@
+# Railway Launch Plan
+
+This is the fastest way to launch Northstar in production.
+
+## Architecture
+
+- Frontend: Vercel
+- Backend: Railway
+- Database: Railway Postgres or external Postgres
+
+## What Railway Hosts
+
+Railway should run the backend from `server.js`.
+
+The existing `Dockerfile` is sufficient for a first launch:
+
+- installs dependencies
+- supports native modules like `better-sqlite3`
+- starts `node server.js`
+
+## Railway Service Setup
+
+Create a new Railway project for the backend.
+
+Deploy this repo to Railway or connect the GitHub repo.
+
+Start command:
+
+```bash
+./scripts/start-with-openclaw-hook.sh
+```
+
+If Railway asks for a port, keep using the dynamic `PORT` environment variable. The server already respects it.
+
+## Required Railway Environment Variables
+
+Set these in the Railway service:
+
+```bash
+APP_URL=https://northstar-git-main-truehamiltoniancanada-devs-projects.vercel.app
+API_BASE_URL=https://your-railway-backend-domain.up.railway.app
+CORS_ORIGIN=https://northstar-git-main-truehamiltoniancanada-devs-projects.vercel.app
+DATABASE_URL=postgres://user:password@host:5432/northstar
+STRIPE_SECRET_KEY=***
+STRIPE_WEBHOOK_SECRET=***
+STRIPE_PRICE_ID=price_...
+OPENAI_API_KEY=***
+OPENAI_MODEL=gpt-4.1-mini
+EMAIL_PROVIDER=sendgrid
+EMAIL_FROM=Northstar <hello@your-domain.example>
+SENDGRID_API_KEY=***
+DEV_AUTH_CODES=false
+DEPLOY_WEBHOOK_URL=https://your-railway-backend-domain.up.railway.app/api/deploy-events
+DEPLOY_WEBHOOK_TOKEN=choose…oken
+```
+
+Notes:
+
+- Do not set `PORT` manually unless Railway requires it.
+- Use Postgres in production.
+- Do not leave `DEV_AUTH_CODES=true` in production.
+- The wrapper start script waits for `/api/health` to come up, then posts a success event to the deploy-events endpoint.
+- If `DEPLOY_WEBHOOK_URL` or `DEPLOY_WEBHOOK_TOKEN` is missing, the notification is skipped and the app still starts normally.
+
+## Vercel Frontend Environment Variable
+
+Set this in the Vercel project:
+
+```bash
+VITE_API_BASE_URL=https://your-railway-backend-domain.up.railway.app/api
+```
+
+Then redeploy the frontend.
+
+## Stripe Webhook
+
+In Stripe, point the webhook to:
+
+```bash
+https://your-railway-backend-domain.up.railway.app/api/billing/webhook
+```
+
+Events to include at minimum:
+
+- `checkout.session.completed`
+- `customer.subscription.updated`
+- `customer.subscription.deleted`
+
+## Smoke Test Order
+
+1. Open `https://your-railway-backend-domain.up.railway.app/api/health`
+2. Confirm `ok: true`
+3. Confirm `emailConfigured: true`
+4. Confirm `devAuthCodes: false`
+5. Redeploy Vercel frontend with the Railway API URL
+6. Load the frontend and confirm the title is `Northstar`
+7. Request a verification code
+8. Confirm the code email arrives
+9. Sign in successfully
+10. Start Stripe checkout
+11. Complete payment in test/live mode as intended
+12. Confirm membership becomes active
+13. Send a chat message and confirm response
+
+## Likely Failure Modes
+
+- `404` on `/api/health`: Railway service is not running or wrong domain used
+- email sign-in fails: SendGrid or `EMAIL_FROM` is wrong
+- checkout fails: Stripe live keys or `STRIPE_PRICE_ID` are wrong
+- membership never activates: webhook URL or `STRIPE_WEBHOOK_SECRET` is wrong
+- frontend still hits localhost: `VITE_API_BASE_URL` was not set before Vercel redeploy
+
+## Launch Recommendation
+
+Launch backend first on Railway.
+Then point Vercel at it.
+Then test sign-in before testing Stripe.
+Then test Stripe before announcing launch.

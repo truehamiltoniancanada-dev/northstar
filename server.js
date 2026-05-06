@@ -460,11 +460,11 @@ async function generateReply(email, listenerId, message) {
     })),
     { role: 'user', content: message },
   ]
-  const response = await openai.responses.create({
+  const response = await openai.chat.completions.create({
     model: openAiModel,
-    input: promptMessages,
+    messages: promptMessages,
   })
-  const reply = response.output_text?.trim()
+  const reply = response.choices?.[0]?.message?.content?.trim()
   if (!reply) {
     return { reply: fallbackReply(listenerId), source: 'fallback' }
   }
