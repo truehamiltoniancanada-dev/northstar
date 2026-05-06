@@ -63,11 +63,9 @@ EMAIL_PROVIDER=sendgrid
 EMAIL_FROM=Northstar <hello@your-domain.example>
 SENDGRID_API_KEY=***
 DEV_AUTH_CODES=false
-DEPLOY_WEBHOOK_URL=https://your-api-domain.example.com/api/deploy-events
-DEPLOY_WEBHOOK_TOKEN=your_s…oken
 ```
 
-The Railway backend can record a successful boot by using `./scripts/start-with-openclaw-hook.sh` as the start command.
+The Railway backend uses `node server.js` as its start command (configured in `railway.json`).
 
 ## Production Notes
 

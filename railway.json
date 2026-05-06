@@ -1,32 +1,10 @@
 {
   "$schema": "https://railway.app/railway.schema.json",
-  "build": {
-    "builder": "NIXPACKS",
-    "nixpacksPlan": {
-      "variables": {
-        "PYTHON": "/nix/var/nix/profiles/default/bin/python3"
-      },
-      "pkgs": [
-        "python3",
-        "nodejs_22"
-      ],
-      "build": {
-        "commands": [
-          "npm config set python python3",
-          "npm install --build-from-source better-sqlite3",
-          "npm install"
-        ],
-        "src": "."
-      },
-      "start": {
-        "command": "./scripts/start-with-openclaw-hook.sh"
-      }
-    }
-  },
   "deploy": {
     "numReplicas": 1,
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10,
-    "startCommand": "./scripts/start-with-openclaw-hook.sh"
+    "startCommand": "node server.js",
+    "healthcheckPath": "/api/health"
   }
 }

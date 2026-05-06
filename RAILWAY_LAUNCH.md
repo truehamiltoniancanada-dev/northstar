@@ -27,10 +27,12 @@ Deploy this repo to Railway or connect the GitHub repo.
 Start command:
 
 ```bash
-./scripts/start-with-openclaw-hook.sh
+node server.js
 ```
 
-If Railway asks for a port, keep using the dynamic `PORT` environment variable. The server already respects it.
+Railway picks this up automatically from `railway.json`. The server reads the dynamic `PORT` environment variable Railway provides.
+
+Healthcheck path is set to `/api/health` in `railway.json` so Railway marks the deploy ready as soon as the server responds.
 
 ## Required Railway Environment Variables
 
@@ -50,8 +52,6 @@ EMAIL_PROVIDER=sendgrid
 EMAIL_FROM=Northstar <hello@your-domain.example>
 SENDGRID_API_KEY=***
 DEV_AUTH_CODES=false
-DEPLOY_WEBHOOK_URL=https://your-railway-backend-domain.up.railway.app/api/deploy-events
-DEPLOY_WEBHOOK_TOKEN=choose…oken
 ```
 
 Notes:
@@ -59,8 +59,6 @@ Notes:
 - Do not set `PORT` manually unless Railway requires it.
 - Use Postgres in production.
 - Do not leave `DEV_AUTH_CODES=true` in production.
-- The wrapper start script waits for `/api/health` to come up, then posts a success event to the deploy-events endpoint.
-- If `DEPLOY_WEBHOOK_URL` or `DEPLOY_WEBHOOK_TOKEN` is missing, the notification is skipped and the app still starts normally.
 
 ## Vercel Frontend Environment Variable
 
