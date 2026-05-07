@@ -7,6 +7,15 @@ import Stripe from 'stripe'
 import Database from 'better-sqlite3'
 import pg from 'pg'
 
+function log(level, msg, meta = {}) {
+  const ts = new Date().toISOString()
+  if (process.env.NODE_ENV === 'production') {
+    console.log(JSON.stringify({ ts, level, msg, ...meta }))
+  } else {
+    console.log(`[${ts}] ${level.toUpperCase()} ${msg}`, Object.keys(meta).length ? meta : '')
+  }
+}
+
 const env = loadEnv(path.join(process.cwd(), '.env'))
 const port = Number(env.PORT || process.env.PORT || 8787)
 const appUrl = env.APP_URL || process.env.APP_URL || 'http://127.0.0.1:5173'
@@ -32,6 +41,8 @@ const stripe = stripeSecretKey ? new Stripe(stripeSecretKey) : null
 const openai = openAiApiKey ? new OpenAI({ apiKey: openAiApiKey }) : null
 const emailProviderConfigured = emailProvider === 'resend' ? Boolean(resendApiKey && emailFrom) : emailProvider === 'sendgrid' ? Boolean(sendgridApiKey && emailFrom) : false
 const authRateBuckets = new Map()
+
+let pgPool = null
 
 const db = await createDatabase()
 
@@ -132,15 +143,19 @@ function createSqliteAdapter() {
     )
   }
 
+  // Rewrite Postgres-style $1, $2 placeholders to SQLite ? for better-sqlite3.
+  // Assumes sequential numbering with no reuse, which is true throughout this codebase.
+  const toSqlite = (sql) => sql.replace(/\$\d+/g, '?')
+
   return {
     run(sql, ...params) {
-      return sqlite.prepare(sql).run(...params)
+      return sqlite.prepare(toSqlite(sql)).run(...params)
     },
     get(sql, ...params) {
-      return sqlite.prepare(sql).get(...params)
+      return sqlite.prepare(toSqlite(sql)).get(...params)
     },
     all(sql, ...params) {
-      return sqlite.prepare(sql).all(...params)
+      return sqlite.prepare(toSqlite(sql)).all(...params)
     },
   }
 }
@@ -148,6 +163,10 @@ function createSqliteAdapter() {
 async function createPostgresAdapter(connectionString) {
   const { Pool } = pg
   const pool = new Pool({ connectionString })
+  pgPool = pool
+  pool.on('error', (err) => {
+    log('error', 'postgres pool error', { error: err.message })
+  })
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS users (
@@ -199,6 +218,8 @@ async function createPostgresAdapter(connectionString) {
     );
   `)
 
+  await assertPostgresConstraints(pool)
+
   return {
     async run(sql, ...params) {
       const result = await pool.query(sql, params)
@@ -213,6 +234,31 @@ async function createPostgresAdapter(connectionString) {
       return result.rows
     },
   }
+}
+
+async function assertPostgresConstraints(pool) {
+  const checks = [
+    { table: 'auth_challenges', column: 'email', kind: 'primary key or unique' },
+    { table: 'email_leads', column: 'email', kind: 'primary key or unique' },
+  ]
+  const failures = []
+  for (const c of checks) {
+    const result = await pool.query(
+      `SELECT 1 FROM pg_index i
+       JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
+       WHERE i.indrelid = $1::regclass AND i.indisunique AND a.attname = $2 LIMIT 1`,
+      [c.table, c.column]
+    )
+    if (result.rows.length === 0) {
+      failures.push(c)
+    }
+  }
+  if (failures.length) {
+    log('error', 'postgres schema constraint check failed', { failures })
+    log('error', 'refusing to start: ON CONFLICT (email) requires a unique index. Add it manually or drop the table to let init recreate it.')
+    process.exit(1)
+  }
+  log('info', 'postgres schema constraints verified', { checked: checks.map((c) => `${c.table}.${c.column}`) })
 }
 
 // ---------------------------------------------------------------------------
@@ -423,7 +469,23 @@ async function deliverVerificationCode(email, code) {
 // AI reply generation
 // ---------------------------------------------------------------------------
 
-const crisisKeywords = ['suicide', 'kill myself', 'want to die', 'end it all'];
+const crisisKeywords = [
+  'suicide',
+  'kill myself',
+  'killing myself',
+  'want to die',
+  'end it all',
+  'end my life',
+  'take my life',
+  'off myself',
+  'better off dead',
+  'no reason to live',
+  'no point living',
+  'not worth living',
+  'want to disappear',
+  'hurt myself',
+  'harm myself',
+];
 function detectCrisis(text) {
   const lower = String(text).toLowerCase();
   return crisisKeywords.some(kw => lower.includes(kw));
@@ -462,10 +524,16 @@ async function generateReply(email, listenerId, message) {
     })),
     { role: 'user', content: message },
   ]
-  const response = await openai.chat.completions.create({
-    model: openAiModel,
-    messages: promptMessages,
-  })
+  let response
+  try {
+    response = await openai.chat.completions.create({
+      model: openAiModel,
+      messages: promptMessages,
+    })
+  } catch (error) {
+    log('error', 'openai request failed', { error: error.message, listenerId })
+    return { reply: fallbackReply(listenerId), source: 'fallback-error' }
+  }
   const reply = response.choices?.[0]?.message?.content?.trim()
   if (!reply) {
     return { reply: fallbackReply(listenerId), source: 'fallback' }
@@ -753,6 +821,7 @@ const server = http.createServer(async (req, res) => {
     try {
       const rawBody = await readRawBody(req)
       const event = stripe.webhooks.constructEvent(rawBody, signature, stripeWebhookSecret)
+      log('info', 'stripe webhook received', { type: event.type, id: event.id })
       if (event.type === 'checkout.session.completed') {
         const session = event.data.object
         const email = normalizeEmail(session.customer_details?.email || session.metadata?.email)
@@ -861,5 +930,44 @@ const server = http.createServer(async (req, res) => {
 })
 
 server.listen(port, () => {
-  console.log(`Northstar API listening on http://127.0.0.1:${port}`)
+  log('info', 'northstar api listening', {
+    port,
+    database: databaseUrl ? 'postgres' : 'sqlite',
+    nodeEnv: process.env.NODE_ENV || 'development',
+  })
 })
+
+// Sweep stale rate-limit buckets to prevent unbounded memory growth.
+// Single-replica only; multi-replica deployments need a shared store.
+setInterval(() => {
+  const now = Date.now()
+  for (const [key, bucket] of authRateBuckets) {
+    if (now > bucket.resetAt + authWindowMs) {
+      authRateBuckets.delete(key)
+    }
+  }
+}, authWindowMs).unref()
+
+let shuttingDown = false
+async function shutdown(signal) {
+  if (shuttingDown) return
+  shuttingDown = true
+  log('info', 'shutdown initiated', { signal })
+  const hardExit = setTimeout(() => {
+    log('error', 'graceful shutdown timed out, forcing exit')
+    process.exit(1)
+  }, 10_000)
+  hardExit.unref()
+  server.close((err) => {
+    if (err) log('error', 'http server close error', { error: err.message })
+  })
+  try {
+    if (pgPool) await pgPool.end()
+  } catch (err) {
+    log('error', 'postgres pool drain error', { error: err.message })
+  }
+  log('info', 'shutdown complete')
+  process.exit(0)
+}
+process.on('SIGTERM', () => shutdown('SIGTERM'))
+process.on('SIGINT', () => shutdown('SIGINT'))
