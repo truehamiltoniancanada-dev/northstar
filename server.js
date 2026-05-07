@@ -223,11 +223,11 @@ function hashCode(email, code) {
   return crypto.createHash('sha256').update(`${email}:${code}`).digest('hex')
 }
 
-function createChallenge(email) {
+async function createChallenge(email) {
   const code = String(Math.floor(100000 + Math.random() * 900000))
   const createdAt = new Date()
   const expiresAt = new Date(createdAt.getTime() + 1000 * 60 * 10).toISOString()
-  db.run(`
+  await db.run(`
     INSERT INTO auth_challenges (email, code_hash, attempts, created_at, expires_at)
     VALUES ($1, $2, 0, $3, $4)
     ON CONFLICT (email) DO UPDATE SET
@@ -239,13 +239,13 @@ function createChallenge(email) {
   return code
 }
 
-function verifyChallenge(email, code) {
-  const challenge = db.get('SELECT * FROM auth_challenges WHERE email = $1', email)
+async function verifyChallenge(email, code) {
+  const challenge = await db.get('SELECT * FROM auth_challenges WHERE email = $1', email)
   if (!challenge) {
     throw new Error('No verification code requested')
   }
   if (new Date(challenge.expires_at).getTime() < Date.now()) {
-    db.run('DELETE FROM auth_challenges WHERE email = $1', email)
+    await db.run('DELETE FROM auth_challenges WHERE email = $1', email)
     throw new Error('Verification code expired')
   }
   if (challenge.attempts >= 5) {
@@ -253,25 +253,25 @@ function verifyChallenge(email, code) {
   }
   const expected = hashCode(email, code)
   if (expected !== challenge.code_hash) {
-    db.run('UPDATE auth_challenges SET attempts = attempts + 1 WHERE email = $1', email)
+    await db.run('UPDATE auth_challenges SET attempts = attempts + 1 WHERE email = $1', email)
     throw new Error('Invalid verification code')
   }
-  db.run('DELETE FROM auth_challenges WHERE email = $1', email)
+  await db.run('DELETE FROM auth_challenges WHERE email = $1', email)
 }
 
-function createSession(email) {
+async function createSession(email) {
   const token = crypto.randomBytes(24).toString('hex')
   const now = new Date()
   const expiresAt = new Date(now.getTime() + 1000 * 60 * 60 * 24 * 30).toISOString()
-  db.run('DELETE FROM sessions WHERE email = $1', email)
-  db.run(
+  await db.run('DELETE FROM sessions WHERE email = $1', email)
+  await db.run(
     'INSERT INTO sessions (token, email, created_at, expires_at) VALUES ($1, $2, $3, $4)',
     token, email, now.toISOString(), expiresAt
   )
   return token
 }
 
-function getSessionFromRequest(req) {
+async function getSessionFromRequest(req) {
   const header = String(req.headers.authorization || '')
   if (!header.startsWith('Bearer ')) {
     return null
@@ -280,19 +280,19 @@ function getSessionFromRequest(req) {
   if (!token) {
     return null
   }
-  const session = db.get('SELECT * FROM sessions WHERE token = $1', token)
+  const session = await db.get('SELECT * FROM sessions WHERE token = $1', token)
   if (!session) {
     return null
   }
   if (new Date(session.expires_at).getTime() < Date.now()) {
-    db.run('DELETE FROM sessions WHERE token = $1', token)
+    await db.run('DELETE FROM sessions WHERE token = $1', token)
     return null
   }
   return session
 }
 
-function requireSession(req, res) {
-  const session = getSessionFromRequest(req)
+async function requireSession(req, res) {
+  const session = await getSessionFromRequest(req)
   if (!session) {
     json(req, res, 401, { error: 'Valid session required' })
     return null
@@ -304,18 +304,18 @@ function requireSession(req, res) {
 // User helpers
 // ---------------------------------------------------------------------------
 
-function getUser(email) {
+async function getUser(email) {
   return db.get('SELECT * FROM users WHERE email = $1', email)
 }
 
-function upsertUser(email) {
+async function upsertUser(email) {
   const now = new Date().toISOString()
-  const existing = getUser(email)
+  const existing = await getUser(email)
   if (existing) {
-    db.run('UPDATE users SET updated_at = $1 WHERE email = $2', now, email)
+    await db.run('UPDATE users SET updated_at = $1 WHERE email = $2', now, email)
     return getUser(email)
   }
-  db.run(
+  await db.run(
     'INSERT INTO users (email, membership_active, created_at, updated_at) VALUES ($1, 0, $2, $3)',
     email, now, now
   )
@@ -339,25 +339,27 @@ function serializeUser(user) {
 // Chat helpers
 // ---------------------------------------------------------------------------
 
-function saveChatMessage(email, listenerId, role, label, text) {
-  db.run(
+async function saveChatMessage(email, listenerId, role, label, text) {
+  await db.run(
     'INSERT INTO chat_messages (email, listener_id, role, label, text, created_at) VALUES ($1, $2, $3, $4, $5, $6)',
     email, listenerId, role, label, text, new Date().toISOString()
   )
 }
 
-function getRecentMessages(email, listenerId) {
-  return db.all(
+async function getRecentMessages(email, listenerId) {
+  const rows = await db.all(
     'SELECT role, label, text FROM chat_messages WHERE email = $1 AND listener_id = $2 ORDER BY id DESC LIMIT 8',
     email, listenerId
-  ).reverse()
+  )
+  return rows.reverse()
 }
 
-function getChatHistory(email, listenerId, limit = 40) {
-  return db.all(
+async function getChatHistory(email, listenerId, limit = 40) {
+  const rows = await db.all(
     'SELECT role, label, text, created_at FROM chat_messages WHERE email = $1 AND listener_id = $2 ORDER BY id DESC LIMIT $3',
     email, listenerId, limit
-  ).reverse()
+  )
+  return rows.reverse()
 }
 
 // ---------------------------------------------------------------------------
@@ -451,7 +453,7 @@ async function generateReply(email, listenerId, message) {
   if (!openai) {
     return { reply: fallbackReply(listenerId), source: 'fallback' }
   }
-  const recent = getRecentMessages(email, listenerId)
+  const recent = await getRecentMessages(email, listenerId)
   const promptMessages = [
     { role: 'system', content: buildSystemPrompt(listenerId) },
     ...recent.map((item) => ({
@@ -479,12 +481,12 @@ async function createCheckoutSession(email) {
   if (!stripe || !stripePriceId) {
     throw new Error('Stripe is not configured yet')
   }
-  const user = upsertUser(email)
+  const user = await upsertUser(email)
   let customerId = user.stripe_customer_id || undefined
   if (!customerId) {
     const customer = await stripe.customers.create({ email })
     customerId = customer.id
-    db.run(
+    await db.run(
       'UPDATE users SET stripe_customer_id = $1, updated_at = $2 WHERE email = $3',
       customerId, new Date().toISOString(), email
     )
@@ -506,7 +508,7 @@ async function createBillingPortalSession(email) {
   if (!stripe) {
     throw new Error('Stripe is not configured yet')
   }
-  const user = getUser(email)
+  const user = await getUser(email)
   if (!user?.stripe_customer_id) {
     throw new Error('No Stripe customer found for this account')
   }
@@ -517,11 +519,11 @@ async function createBillingPortalSession(email) {
   return session
 }
 
-function updateUserSubscription(email, customerId, subscriptionId, status) {
+async function updateUserSubscription(email, customerId, subscriptionId, status) {
   const active = status === 'active' || status === 'trialing'
   const now = new Date().toISOString()
-  upsertUser(email)
-  db.run(`
+  await upsertUser(email)
+  await db.run(`
     UPDATE users SET
       membership_active = $1,
       stripe_customer_id = COALESCE($2, stripe_customer_id),
@@ -653,8 +655,8 @@ const server = http.createServer(async (req, res) => {
       if (!isValidEmail(email)) {
         return json(req, res, 400, { error: 'Valid email required' })
       }
-      upsertUser(email)
-      const code = createChallenge(email)
+      await upsertUser(email)
+      const code = await createChallenge(email)
       const delivery = await deliverVerificationCode(email, code)
       return json(req, res, 200, {
         ok: true,
@@ -683,9 +685,9 @@ const server = http.createServer(async (req, res) => {
       if (!/^\d{6}$/.test(code)) {
         return json(req, res, 400, { error: 'Valid 6-digit code required' })
       }
-      verifyChallenge(email, code)
-      const user = upsertUser(email)
-      const token = createSession(email)
+      await verifyChallenge(email, code)
+      const user = await upsertUser(email)
+      const token = await createSession(email)
       return json(req, res, 200, { ok: true, token, user: serializeUser(user) })
     } catch (error) {
       return json(req, res, 400, { error: error.message })
@@ -694,30 +696,30 @@ const server = http.createServer(async (req, res) => {
 
   // POST /api/auth/signout
   if (req.method === 'POST' && url.pathname === '/api/auth/signout') {
-    const session = requireSession(req, res)
+    const session = await requireSession(req, res)
     if (!session) return
-    db.run('DELETE FROM sessions WHERE token = $1', session.token)
+    await db.run('DELETE FROM sessions WHERE token = $1', session.token)
     return json(req, res, 200, { ok: true })
   }
 
   if (req.method === 'GET' && url.pathname === '/api/auth/status') {
-    const session = requireSession(req, res)
+    const session = await requireSession(req, res)
     if (!session) return
-    const user = getUser(session.email)
+    const user = await getUser(session.email)
     return json(req, res, 200, { ok: true, user: serializeUser(user) })
   }
 
   // GET /api/chat/history
   if (req.method === 'GET' && url.pathname === '/api/chat/history') {
-    const session = requireSession(req, res)
+    const session = await requireSession(req, res)
     if (!session) return
     const listenerId = sanitizeListenerId(String(url.searchParams.get('listenerId') || 'steady'))
-    return json(req, res, 200, { ok: true, messages: getChatHistory(session.email, listenerId) })
+    return json(req, res, 200, { ok: true, messages: await getChatHistory(session.email, listenerId) })
   }
 
   // POST /api/billing/checkout-session
   if (req.method === 'POST' && url.pathname === '/api/billing/checkout-session') {
-    const session = requireSession(req, res)
+    const session = await requireSession(req, res)
     if (!session) return
     try {
       const checkout = await createCheckoutSession(session.email)
@@ -729,7 +731,7 @@ const server = http.createServer(async (req, res) => {
 
   // POST /api/billing/portal-session
   if (req.method === 'POST' && url.pathname === '/api/billing/portal-session') {
-    const session = requireSession(req, res)
+    const session = await requireSession(req, res)
     if (!session) return
     try {
       const portal = await createBillingPortalSession(session.email)
@@ -755,15 +757,15 @@ const server = http.createServer(async (req, res) => {
         const session = event.data.object
         const email = normalizeEmail(session.customer_details?.email || session.metadata?.email)
         if (email) {
-          updateUserSubscription(email, String(session.customer || ''), String(session.subscription || ''), 'active')
+          await updateUserSubscription(email, String(session.customer || ''), String(session.subscription || ''), 'active')
         }
       }
       if (event.type === 'customer.subscription.updated' || event.type === 'customer.subscription.deleted') {
         const subscription = event.data.object
         const customerId = String(subscription.customer || '')
-        const row = db.get('SELECT email FROM users WHERE stripe_customer_id = $1', customerId)
+        const row = await db.get('SELECT email FROM users WHERE stripe_customer_id = $1', customerId)
         if (row?.email) {
-          updateUserSubscription(row.email, customerId, String(subscription.id || ''), String(subscription.status || 'inactive'))
+          await updateUserSubscription(row.email, customerId, String(subscription.id || ''), String(subscription.status || 'inactive'))
         }
       }
       return json(req, res, 200, { received: true })
@@ -780,7 +782,7 @@ const server = http.createServer(async (req, res) => {
     }
     try {
       const body = await readJsonBody(req);
-      db.run('INSERT INTO deploy_events (status, project, branch, commit_sha, build_id, url, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+      await db.run('INSERT INTO deploy_events (status, project, branch, commit_sha, build_id, url, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7)',
         body.status || 'unknown',
         body.project || 'unknown',
         body.branch || '',
@@ -797,7 +799,7 @@ const server = http.createServer(async (req, res) => {
 
   // POST /api/chat
   if (req.method === 'POST' && url.pathname === '/api/chat') {
-    const session = requireSession(req, res)
+    const session = await requireSession(req, res)
     if (!session) return
     try {
       const body = await readJsonBody(req)
@@ -806,15 +808,15 @@ const server = http.createServer(async (req, res) => {
       if (!text) {
         return json(req, res, 400, { error: 'Message required' })
       }
-      const user = getUser(session.email)
+      const user = await getUser(session.email)
       if (!user || !user.membership_active) {
         return json(req, res, 403, { error: 'Active membership required' })
       }
-      saveChatMessage(session.email, listenerId, 'user', 'You', text)
-      
+      await saveChatMessage(session.email, listenerId, 'user', 'You', text)
+
       let escalated = false;
       let reply, source;
-      
+
       if (detectCrisis(text)) {
         escalated = true;
         reply = "It sounds like you are going through a really difficult time. Please reach out to a crisis lifeline like 988 in the US and Canada, or text HOME to 741741. You don't have to be alone in this.";
@@ -824,8 +826,8 @@ const server = http.createServer(async (req, res) => {
         reply = result.reply;
         source = result.source;
       }
-      
-      saveChatMessage(session.email, listenerId, 'assistant', listenerId, reply)
+
+      await saveChatMessage(session.email, listenerId, 'assistant', listenerId, reply)
       return json(req, res, 200, { ok: true, reply, source, escalated })
     } catch (error) {
       return json(req, res, 400, { error: error.message })
@@ -845,7 +847,7 @@ const server = http.createServer(async (req, res) => {
         incentive: 'Founding member rate locked for 3 months + Northstar reset pack',
         capturedAt: new Date().toISOString(),
       }
-      db.run(
+      await db.run(
         'INSERT INTO email_leads (email, incentive, captured_at) VALUES ($1, $2, $3) ON CONFLICT (email) DO UPDATE SET incentive = EXCLUDED.incentive, captured_at = EXCLUDED.captured_at',
         record.email, record.incentive, record.capturedAt
       )
