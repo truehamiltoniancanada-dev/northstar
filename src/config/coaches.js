@@ -1,0 +1,32 @@
+export const coaches = [
+  {
+    id: 'coach-w',
+    name: 'Coach W',
+    tone: 'Calm, reassuring, steady',
+    description: 'Warm, measured support for nights when your thoughts are loud and you need grounding.',
+    accent: 'calm',
+    opening: 'Take a breath with me. You do not have to solve the whole night at once.',
+    followUp: 'What feels heaviest right now: your thoughts, your body, or what happened today?',
+    suggestions: ['Guide me through a reset', 'Help me slow my thoughts', 'Stay gentle but direct'],
+  },
+  {
+    id: 'coach-h',
+    name: 'Coach H',
+    tone: 'Loving, direct, accountable',
+    description: 'Affection first, excuses second. Helps you feel seen while nudging better choices.',
+    accent: 'coach',
+    opening: 'I am with you, and I am not going to let you disappear into avoidance tonight.',
+    followUp: 'Tell me what is true, not what fear is shouting. What actually happened?',
+    suggestions: ['Push me a little', 'Help me name the truth', 'Give me one accountable next step'],
+  },
+  {
+    id: 'coach-o',
+    name: 'Coach O',
+    tone: 'Blunt, focused, unsentimental',
+    description: 'Not soft and not cruel. Sharp honesty for moments when you want clarity quickly.',
+    accent: 'straight',
+    opening: 'Let us cut through the noise. The spiral is talking louder than reality right now.',
+    followUp: 'What story are you repeating that is making this worse?',
+    suggestions: ['Call out my spiral', 'Give me blunt clarity', 'Tell me what to do next'],
+  },
+]
