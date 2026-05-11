@@ -11,7 +11,9 @@ export default function CoachSelectionScreen({ selectedCoachId, onSelectCoach, o
           Choose your
           <span> coach.</span>
         </h1>
-        <p className="product-copy">Pick the support style you want to carry into your session.</p>
+        <p className="product-copy">
+          Pick the support style you want to carry into your session. You can switch later; each coach keeps its own lightweight memory.
+        </p>
 
         <div className="listener-stack">
           {coaches.map((coach) => (
@@ -23,6 +25,8 @@ export default function CoachSelectionScreen({ selectedCoachId, onSelectCoach, o
               <div>
                 <strong>{coach.name}</strong>
                 <p>{coach.description}</p>
+                <div className="coach-detail">{coach.whenToChoose}</div>
+                <div className="coach-memory-note">{coach.memoryNote}</div>
               </div>
               <span className="option-tone">{coach.tone}</span>
             </button>

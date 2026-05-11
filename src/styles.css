@@ -386,6 +386,53 @@ a {
   font-size: 1.02rem;
 }
 
+.intro-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 22px;
+}
+
+.intro-list div,
+.coach-insight-card {
+  border: 1px solid rgba(23, 19, 17, 0.08);
+  background: rgba(255, 255, 255, 0.58);
+  border-radius: 20px;
+  padding: 14px 16px;
+}
+
+.intro-list strong,
+.coach-insight-card strong {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.intro-list span,
+.coach-detail,
+.coach-memory-note,
+.coach-insight-card span {
+  color: var(--muted);
+  line-height: 1.5;
+  font-size: 0.92rem;
+}
+
+.coach-insight-card {
+  display: grid;
+  gap: 6px;
+  margin-top: 20px;
+}
+
+.coach-insight-card.calm {
+  background: linear-gradient(180deg, rgba(163, 199, 181, 0.22), rgba(255, 255, 255, 0.62));
+}
+
+.coach-insight-card.coach {
+  background: linear-gradient(180deg, rgba(246, 198, 79, 0.2), rgba(255, 255, 255, 0.62));
+}
+
+.coach-insight-card.straight {
+  background: linear-gradient(180deg, rgba(255, 135, 93, 0.18), rgba(255, 255, 255, 0.62));
+}
+
 .progress-row {
   display: flex;
   gap: 10px;
@@ -464,6 +511,15 @@ a {
 .listener-option p {
   margin: 8px 0 0;
   line-height: 1.5;
+}
+
+.coach-detail,
+.coach-memory-note {
+  margin-top: 10px;
+}
+
+.coach-memory-note {
+  font-weight: 700;
 }
 
 .listener-option.selected {
