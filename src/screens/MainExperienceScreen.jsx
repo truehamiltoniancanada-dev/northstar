@@ -452,21 +452,21 @@ export default function MainExperienceScreen({ selectedCoachId, onChangeCoach })
             <span> support flow.</span>
           </h1>
           <p className="product-copy">
-            Northstar now supports a real subscription backend. Start checkout to unlock persistent support history, recurring access,
-            and full session continuity.
+            Start checkout to unlock the live support flow: three differentiated coaches, saved session history, coach-specific memory,
+            and recurring access when difficult nights show up again.
           </p>
           <div className="gate-price">
             $24<span>/month</span>
           </div>
           <div className="membership-list gate-list">
             <div>
-              <CheckCircle2 size={16} /> Persistent user and chat records in the backend
+              <CheckCircle2 size={16} /> Coach W, H, and O with distinct emotional support styles
             </div>
             <div>
-              <CheckCircle2 size={16} /> Stripe-backed recurring membership flow
+              <CheckCircle2 size={16} /> Saved chats and lightweight memory per coach
             </div>
             <div>
-              <CheckCircle2 size={16} /> Real model-backed support responses when configured
+              <CheckCircle2 size={16} /> Stripe-backed recurring membership and billing portal
             </div>
           </div>
           <button className="button primary auth-button" onClick={beginCheckout} disabled={!apiReady || !stripeConfigured || isLoadingCheckout}>
@@ -495,8 +495,14 @@ export default function MainExperienceScreen({ selectedCoachId, onChangeCoach })
             <span> tonight.</span>
           </h1>
           <p className="product-copy">
-            You selected {coach.name}. Set the mood, name your goal, and begin a guided support conversation.
+            You selected {coach.name}. Set the emotional route, name what would help, and start with enough context for the first reply
+            to meet the night you are actually in.
           </p>
+          <div className={`coach-insight-card ${coach.accent}`}>
+            <strong>{coach.tone}</strong>
+            <span>{coach.whenToChoose}</span>
+            <span>{coach.memoryNote}</span>
+          </div>
 
           <div className="progress-row" aria-hidden="true">
             <span className={step >= 1 ? 'progress-dot active' : 'progress-dot'} />
@@ -506,6 +512,10 @@ export default function MainExperienceScreen({ selectedCoachId, onChangeCoach })
           {step === 1 ? (
             <div className="flow-card">
               <div className="flow-heading">What are you walking in with?</div>
+              <p>
+                This helps Northstar route the first response: grounding for overwhelm, warmth for shame or loneliness, accountability for
+                avoidance, and reality-testing for distorted stories.
+              </p>
               <div className="chip-grid">
                 {moods.map((item) => (
                   <button key={item} className={item === selectedMood ? 'choice-chip selected' : 'choice-chip'} onClick={() => setSelectedMood(item)}>
@@ -523,6 +533,10 @@ export default function MainExperienceScreen({ selectedCoachId, onChangeCoach })
           {step === 2 ? (
             <div className="flow-card">
               <div className="flow-heading">Set up the first exchange</div>
+              <p>
+                A specific first message helps your coach remember the useful stuff over time: triggers, rituals, commitments, distortions,
+                and wording that actually reaches you.
+              </p>
               <label className="field-label">
                 What should Northstar call you?
                 <input className="text-input" value={userName} onChange={(event) => setUserName(event.target.value)} placeholder="Optional" />
@@ -572,8 +586,8 @@ export default function MainExperienceScreen({ selectedCoachId, onChangeCoach })
           </div>
 
           <div className="safety-note">
-            <ShieldAlert size={16} /> Northstar is for emotional support and reflection. In a crisis, the interface should route to urgent
-            human help.
+            <ShieldAlert size={16} /> Northstar is emotional support, not therapy, diagnosis, or emergency care. In a crisis, it routes to
+            urgent human help.
           </div>
         </aside>
 
@@ -600,6 +614,7 @@ export default function MainExperienceScreen({ selectedCoachId, onChangeCoach })
                   <strong>{coach.name}</strong>
                   <span>{selectedMood}</span>
                   <span>Goal: {goal}</span>
+                  <span>Memory: coach-specific and lightweight</span>
                 </div>
               </div>
             ) : (
@@ -657,8 +672,8 @@ export default function MainExperienceScreen({ selectedCoachId, onChangeCoach })
           <span className="eyebrow">Membership</span>
           <h2>One subscription. Three emotional tones. Ongoing support.</h2>
           <p>
-            Northstar is positioned as a monthly support product, with flexible listener switching, saved conversation history, and guided
-            rituals that help users come back before things escalate.
+            Northstar is a monthly support product with flexible coach switching, saved conversation history, coach-specific memory, and
+            guided resets that help users come back before things escalate.
           </p>
         </div>
         <div className="membership-card">
@@ -667,13 +682,13 @@ export default function MainExperienceScreen({ selectedCoachId, onChangeCoach })
           </div>
           <div className="membership-list">
             <div>
-              <CheckCircle2 size={16} /> Unlimited listener switching
+              <CheckCircle2 size={16} /> Unlimited coach switching
             </div>
             <div>
-              <CheckCircle2 size={16} /> Guided sessions and saved chats
+              <CheckCircle2 size={16} /> Guided sessions, saved chats, and coach memory
             </div>
             <div>
-              <CheckCircle2 size={16} /> Reflection prompts and daily resets
+              <CheckCircle2 size={16} /> Emotional routing for spirals, shame, loneliness, and avoidance
             </div>
           </div>
         </div>
