@@ -27,16 +27,37 @@ const chatStarters = [
   'I need help getting steady before I make tonight worse.',
 ]
 
-const storageKey = 'northstar.app.state'
+const storageKey = 'sentryharbor.app.state'
 const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL
 const defaultApiBaseUrl = configuredApiBaseUrl || `${window.location.protocol}//${window.location.hostname}:8787/api`
+
+function readSavedState() {
+  const current = window.localStorage.getItem(storageKey)
+  if (current) {
+    return current
+  }
+
+  for (let index = 0; index < window.localStorage.length; index += 1) {
+    const key = window.localStorage.key(index)
+    if (key?.endsWith('.app.state')) {
+      const migrated = window.localStorage.getItem(key)
+      if (migrated) {
+        window.localStorage.setItem(storageKey, migrated)
+        window.localStorage.removeItem(key)
+        return migrated
+      }
+    }
+  }
+
+  return ''
+}
 
 function buildConversation(coach, userName, mood, goal, message) {
   const introName = userName.trim() || 'friend'
   return [
     {
       role: 'system',
-      label: 'Northstar',
+      label: 'Sentryharbor',
       text: `You chose ${coach.name}. ${coach.tone}.`,
     },
     {
@@ -85,7 +106,7 @@ export default function MainExperienceScreen({ selectedCoachId, onChangeCoach })
 
   useEffect(() => {
     try {
-      const raw = window.localStorage.getItem(storageKey)
+      const raw = readSavedState()
       if (!raw) return
       const saved = JSON.parse(raw)
       setIsSignedIn(Boolean(saved.isSignedIn))
@@ -256,8 +277,8 @@ export default function MainExperienceScreen({ selectedCoachId, onChangeCoach })
           role: 'assistant',
           label: coach.name,
           text: modelConfigured
-            ? 'Northstar could not complete the response right now. Try again in a moment.'
-            : 'A real model provider is not configured yet, so Northstar is using fallback support responses right now.',
+            ? 'Sentryharbor could not complete the response right now. Try again in a moment.'
+            : 'A real model provider is not configured yet, so Sentryharbor is using fallback support responses right now.',
         },
       ])
     }
@@ -406,7 +427,7 @@ export default function MainExperienceScreen({ selectedCoachId, onChangeCoach })
             <span> left off.</span>
           </h1>
           <p className="product-copy">
-            Northstar now uses a verification-code sign in flow instead of trusting raw email in the browser.
+            Sentryharbor now uses a verification-code sign in flow instead of trusting raw email in the browser.
           </p>
           <label className="field-label">
             Email address
@@ -513,7 +534,7 @@ export default function MainExperienceScreen({ selectedCoachId, onChangeCoach })
             <div className="flow-card">
               <div className="flow-heading">What are you walking in with?</div>
               <p>
-                This helps Northstar route the first response: grounding for overwhelm, warmth for shame or loneliness, accountability for
+                This helps Sentryharbor route the first response: grounding for overwhelm, warmth for shame or loneliness, accountability for
                 avoidance, and reality-testing for distorted stories.
               </p>
               <div className="chip-grid">
@@ -538,7 +559,7 @@ export default function MainExperienceScreen({ selectedCoachId, onChangeCoach })
                 and wording that actually reaches you.
               </p>
               <label className="field-label">
-                What should Northstar call you?
+                What should Sentryharbor call you?
                 <input className="text-input" value={userName} onChange={(event) => setUserName(event.target.value)} placeholder="Optional" />
               </label>
               <label className="field-label">
@@ -586,7 +607,7 @@ export default function MainExperienceScreen({ selectedCoachId, onChangeCoach })
           </div>
 
           <div className="safety-note">
-            <ShieldAlert size={16} /> Northstar is emotional support, not therapy, diagnosis, or emergency care. In a crisis, it routes to
+            <ShieldAlert size={16} /> Sentryharbor is emotional support, not therapy, diagnosis, or emergency care. In a crisis, it routes to
             urgent human help.
           </div>
         </aside>
@@ -599,7 +620,7 @@ export default function MainExperienceScreen({ selectedCoachId, onChangeCoach })
               <p>{coach.tone}</p>
             </div>
             <div className="chat-badge">
-              <Compass size={16} /> {modelConfigured ? 'Northstar AI live' : 'Northstar fallback mode'}
+              <Compass size={16} /> {modelConfigured ? 'Sentryharbor AI live' : 'Sentryharbor fallback mode'}
             </div>
           </div>
 
@@ -672,7 +693,7 @@ export default function MainExperienceScreen({ selectedCoachId, onChangeCoach })
           <span className="eyebrow">Membership</span>
           <h2>One subscription. Three emotional tones. Ongoing support.</h2>
           <p>
-            Northstar is a monthly support product with flexible coach switching, saved conversation history, coach-specific memory, and
+            Sentryharbor is a monthly support product with flexible coach switching, saved conversation history, coach-specific memory, and
             guided resets that help users come back before things escalate.
           </p>
         </div>
@@ -708,7 +729,7 @@ export default function MainExperienceScreen({ selectedCoachId, onChangeCoach })
               Drop your email and lock in a better start.
             </h2>
             <p className="product-copy">
-              Join the list and get the founding member rate locked for 3 months plus the Northstar Reset Pack: guided grounding prompts,
+              Join the list and get the founding member rate locked for 3 months plus the Sentryharbor Reset Pack: guided grounding prompts,
               recovery check-ins, and a first-week ritual plan.
             </p>
             <label className="field-label">

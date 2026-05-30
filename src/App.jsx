@@ -23,7 +23,7 @@ export default function App() {
             <div className="brand-mark" aria-hidden="true">
               <svg className="brand-logo" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <defs>
-                  <linearGradient id="northstarGradient" x1="8" y1="8" x2="56" y2="56" gradientUnits="userSpaceOnUse">
+                  <linearGradient id="sentryharborGradient" x1="8" y1="8" x2="56" y2="56" gradientUnits="userSpaceOnUse">
                     <stop stopColor="#201517" />
                     <stop offset="0.58" stopColor="#5D2847" />
                     <stop offset="1" stopColor="#F09D48" />
@@ -39,7 +39,7 @@ export default function App() {
               </svg>
             </div>
             <div>
-              <div className="brand-name">Northstar</div>
+              <div className="brand-name">Sentryharbor</div>
               <div className="brand-sub">a steady guide for difficult nights</div>
             </div>
           </div>

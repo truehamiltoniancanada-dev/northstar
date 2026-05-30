@@ -8,7 +8,7 @@ export default function HomeScreen({ onContinue }) {
         <span className="eyebrow">Welcome</span>
         <h1 className="product-title">
           Find your
-          <span> Northstar.</span>
+          <span> Sentryharbor.</span>
         </h1>
         <p className="product-copy">
           A paid emotional support membership for difficult nights, spirals, shame, loneliness, and confusion. It is not therapy or emergency care.

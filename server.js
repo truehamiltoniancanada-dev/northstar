@@ -79,7 +79,7 @@ async function createDatabase() {
 }
 
 function createSqliteAdapter() {
-  const dbPath = path.join(process.cwd(), 'data', 'northstar.db')
+  const dbPath = path.join(process.cwd(), 'data', 'sentryharbor.db')
   fs.mkdirSync(path.dirname(dbPath), { recursive: true })
   const sqlite = new Database(dbPath)
 
@@ -790,8 +790,8 @@ async function deliverVerificationCode(email, code) {
       body: JSON.stringify({
         from: emailFrom,
         to: [email],
-        subject: 'Your Northstar sign-in code',
-        text: `Your Northstar verification code is ${code}. It expires in 10 minutes.`,
+        subject: 'Your Sentryharbor sign-in code',
+        text: `Your Sentryharbor verification code is ${code}. It expires in 10 minutes.`,
       }),
     })
     if (!response.ok) {
@@ -813,8 +813,8 @@ async function deliverVerificationCode(email, code) {
       body: JSON.stringify({
         personalizations: [{ to: [{ email }] }],
         from: { email: emailFrom },
-        subject: 'Your Northstar sign-in code',
-        content: [{ type: 'text/plain', value: `Your Northstar verification code is ${code}. It expires in 10 minutes.` }],
+        subject: 'Your Sentryharbor sign-in code',
+        content: [{ type: 'text/plain', value: `Your Sentryharbor verification code is ${code}. It expires in 10 minutes.` }],
       }),
     })
     if (!response.ok) {
@@ -881,8 +881,8 @@ function buildSystemPrompt(listenerId, emotionalSignal, memory) {
   const coachRoute = profile.routing[emotionalSignal] || profile.routing.overwhelm_anxiety
 
   return [
-    `You are Northstar ${profile.label}, the ${profile.modeName}.`,
-    'Northstar is paid emotional support for difficult nights, spirals, overwhelm, shame, loneliness, and emotional confusion.',
+    `You are Sentryharbor ${profile.label}, the ${profile.modeName}.`,
+    'Sentryharbor is paid emotional support for difficult nights, spirals, overwhelm, shame, loneliness, and emotional confusion.',
     'It is not therapy, not diagnosis, and not emergency care. Never claim to diagnose or provide clinical treatment.',
     'If the user indicates imminent self-harm, suicide, or danger, prioritize urgent human help and crisis resources.',
     ...profile.prompt,
@@ -1350,7 +1350,7 @@ const server = http.createServer(async (req, res) => {
       }
       const record = {
         email,
-        incentive: 'Founding member rate locked for 3 months + Northstar reset pack',
+        incentive: 'Founding member rate locked for 3 months + Sentryharbor reset pack',
         capturedAt: new Date().toISOString(),
       }
       await db.run(
@@ -1367,7 +1367,7 @@ const server = http.createServer(async (req, res) => {
 })
 
 server.listen(port, () => {
-  log('info', 'northstar api listening', {
+  log('info', 'sentryharbor api listening', {
     port,
     database: databaseUrl ? 'postgres' : 'sqlite',
     nodeEnv: process.env.NODE_ENV || 'development',
