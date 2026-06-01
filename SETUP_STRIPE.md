@@ -84,9 +84,10 @@ Behavior:
 To enable paid membership checkout:
 
 1. Create a product named `Sentryharbor Core` in Stripe test mode
-2. Create a recurring monthly price for `$24.00`
+2. Create a recurring monthly price for `$19.00`
 3. Put the resulting `price_...` id into `STRIPE_PRICE_ID`
 4. Add your Stripe test secret key to `STRIPE_SECRET_KEY`
+5. The backend applies a 7-day trial to new checkout subscriptions.
 
 Forward webhooks locally:
 

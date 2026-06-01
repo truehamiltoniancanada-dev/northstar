@@ -22,7 +22,7 @@ Everything in this document requires action on your end. The code is ready to de
 | `OPENAI_MODEL` | `gpt-4.1-mini` |
 | `STRIPE_SECRET_KEY` | Your Stripe live secret key |
 | `STRIPE_WEBHOOK_SECRET` | From Stripe → Webhooks (see section 3) |
-| `STRIPE_PRICE_ID` | Your $24/month price ID |
+| `STRIPE_PRICE_ID` | Your $19/month price ID |
 | `EMAIL_PROVIDER` | `sendgrid` or `resend` |
 | `EMAIL_FROM` | Your verified sender address |
 | `SENDGRID_API_KEY` | Your SendGrid key (or `RESEND_API_KEY` if using Resend) |
@@ -66,7 +66,7 @@ Once both services are live, verify end-to-end:
 - [ ] Visit `https://sentryharbor.com` — the app loads
 - [ ] Enter your email → receive a verification code email
 - [ ] Sign in with the code
-- [ ] Click Subscribe → Stripe checkout opens with the $24/month price
+- [ ] Click Subscribe → Stripe checkout opens with a 7-day free trial and then $19/month
 - [ ] Complete a test payment (Stripe test card: `4242 4242 4242 4242`, any future date, any CVC)
 - [ ] Confirm membership activates and chat unlocks
 - [ ] Send a message — AI responds

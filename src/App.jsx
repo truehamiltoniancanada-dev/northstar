@@ -47,7 +47,8 @@ export default function App() {
             <span className="session-pill session-pill-button">
               <Gift size={14} /> Founding offer
             </span>
-            <span className="session-pill">$24/month</span>
+            <span className="session-pill">7-day free trial</span>
+            <span className="session-pill">$19/month after</span>
             <span className="session-pill muted">support membership</span>
           </div>
         </header>

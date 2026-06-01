@@ -473,31 +473,31 @@ export default function MainExperienceScreen({ selectedCoachId, onChangeCoach })
             <span> support flow.</span>
           </h1>
           <p className="product-copy">
-            Start checkout to unlock the live support flow: three differentiated coaches, saved session history, coach-specific memory,
-            and recurring access when difficult nights show up again.
+            Start with a 7-day free trial. After the trial, continue at $19/month for all three coaches, saved session history,
+            coach-specific memory, and recurring access when difficult nights show up again.
           </p>
           <div className="gate-price">
-            $24<span>/month</span>
+            One week free trial<span>Then $19/month</span>
           </div>
           <div className="membership-list gate-list">
             <div>
-              <CheckCircle2 size={16} /> Coach W, H, and O with distinct emotional support styles
+              <CheckCircle2 size={16} /> Includes Coach W, Coach H, and Coach O
             </div>
             <div>
               <CheckCircle2 size={16} /> Saved chats and lightweight memory per coach
             </div>
             <div>
-              <CheckCircle2 size={16} /> Stripe-backed recurring membership and billing portal
+              <CheckCircle2 size={16} /> One week free, then $19/month with billing portal access
             </div>
           </div>
           <button className="button primary auth-button" onClick={beginCheckout} disabled={!apiReady || !stripeConfigured || isLoadingCheckout}>
-            {stripeConfigured ? 'Start checkout' : 'Stripe setup required'} <ArrowRight size={16} />
+            {stripeConfigured ? 'Start free trial' : 'Stripe setup required'} <ArrowRight size={16} />
           </button>
           <p className="product-copy gate-helper">
             Status: {subscriptionStatus}.{' '}
             {!stripeConfigured
-              ? 'Add Stripe test keys and a monthly price ID in the backend environment to enable checkout.'
-              : 'Checkout will open in Stripe test mode.'}
+              ? 'Add Stripe keys and the $19 monthly price ID in the backend environment to enable checkout.'
+              : 'Checkout will open in Stripe. Confirm the active price is $19/month with a 7-day trial before launch.'}
           </p>
         </div>
       </section>
@@ -693,23 +693,23 @@ export default function MainExperienceScreen({ selectedCoachId, onChangeCoach })
           <span className="eyebrow">Membership</span>
           <h2>One subscription. Three emotional tones. Ongoing support.</h2>
           <p>
-            Sentryharbor is a monthly support product with flexible coach switching, saved conversation history, coach-specific memory, and
-            guided resets that help users come back before things escalate.
+            Start with a one week free trial. Continue at $19/month after the trial for flexible coach switching, saved conversation
+            history, coach-specific memory, and guided resets that help users come back before things escalate.
           </p>
         </div>
         <div className="membership-card">
           <div className="membership-price">
-            $24<span>/month</span>
+            One week free trial<span>Then $19/month</span>
           </div>
           <div className="membership-list">
             <div>
-              <CheckCircle2 size={16} /> Unlimited coach switching
+              <CheckCircle2 size={16} /> Includes all 3 coaches
             </div>
             <div>
               <CheckCircle2 size={16} /> Guided sessions, saved chats, and coach memory
             </div>
             <div>
-              <CheckCircle2 size={16} /> Emotional routing for spirals, shame, loneliness, and avoidance
+              <CheckCircle2 size={16} /> 7-day free trial, then $19/month
             </div>
           </div>
         </div>
@@ -729,8 +729,8 @@ export default function MainExperienceScreen({ selectedCoachId, onChangeCoach })
               Drop your email and lock in a better start.
             </h2>
             <p className="product-copy">
-              Join the list and get the founding member rate locked for 3 months plus the Sentryharbor Reset Pack: guided grounding prompts,
-              recovery check-ins, and a first-week ritual plan.
+              Join the list for the Sentryharbor launch offer: a one week free trial, then $19/month, plus the Sentryharbor Reset Pack
+              with guided grounding prompts, recovery check-ins, and a first-week ritual plan.
             </p>
             <label className="field-label">
               Best email

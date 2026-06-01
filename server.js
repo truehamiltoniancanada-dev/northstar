@@ -977,6 +977,7 @@ async function createCheckoutSession(email) {
     mode: 'subscription',
     customer: customerId,
     line_items: [{ price: stripePriceId, quantity: 1 }],
+    subscription_data: { trial_period_days: 7 },
     success_url: `${appUrl}?checkout=success`,
     cancel_url: `${appUrl}?checkout=cancelled`,
     allow_promotion_codes: true,
@@ -1350,7 +1351,7 @@ const server = http.createServer(async (req, res) => {
       }
       const record = {
         email,
-        incentive: 'Founding member rate locked for 3 months + Sentryharbor reset pack',
+        incentive: 'One week free trial, then $19/month + Sentryharbor reset pack',
         capturedAt: new Date().toISOString(),
       }
       await db.run(
