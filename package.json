@@ -11,8 +11,12 @@
     "start:api": "node server.js"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.81",
+    "@composio/core": "^0.10.0",
+    "@composio/vercel": "^0.9.2",
     "@solana/web3.js": "latest",
     "@vitejs/plugin-react": "latest",
+    "ai": "^6.0.194",
     "better-sqlite3": "^11.10.0",
     "lucide-react": "latest",
     "openai": "^4.104.0",
