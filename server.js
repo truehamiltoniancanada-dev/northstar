@@ -2,7 +2,6 @@ import crypto from 'node:crypto'
 import fs from 'node:fs'
 import http from 'node:http'
 import path from 'node:path'
-import { Composio } from '@composio/core'
 import OpenAI from 'openai'
 import Stripe from 'stripe'
 import Database from 'better-sqlite3'
@@ -27,9 +26,6 @@ const stripeWebhookSecret = env.STRIPE_WEBHOOK_SECRET || process.env.STRIPE_WEBH
 const stripePriceId = env.STRIPE_PRICE_ID || process.env.STRIPE_PRICE_ID || ''
 const openAiApiKey = env.OPENAI_API_KEY || process.env.OPENAI_API_KEY || ''
 const openAiModel = env.OPENAI_MODEL || process.env.OPENAI_MODEL || 'gpt-4.1-mini'
-const composioApiKey = env.COMPOSIO_API_KEY || process.env.COMPOSIO_API_KEY || ''
-const composioToolkits = parseList(env.COMPOSIO_TOOLKITS || process.env.COMPOSIO_TOOLKITS || '')
-const composioMaxToolIterations = parseInteger(env.COMPOSIO_MAX_TOOL_ITERATIONS || process.env.COMPOSIO_MAX_TOOL_ITERATIONS, 3)
 const devAuthCodes = String(env.DEV_AUTH_CODES || process.env.DEV_AUTH_CODES || 'false').toLowerCase() === 'true'
 const emailProvider = (env.EMAIL_PROVIDER || process.env.EMAIL_PROVIDER || 'disabled').toLowerCase()
 const emailFrom = env.EMAIL_FROM || process.env.EMAIL_FROM || ''
@@ -43,7 +39,6 @@ const deployWebhookToken = env.DEPLOY_WEBHOOK_TOKEN || process.env.DEPLOY_WEBHOO
 
 const stripe = stripeSecretKey ? new Stripe(stripeSecretKey) : null
 const openai = openAiApiKey ? new OpenAI({ apiKey: openAiApiKey }) : null
-const composio = composioApiKey ? new Composio({ apiKey: composioApiKey }) : null
 const emailProviderConfigured = emailProvider === 'resend' ? Boolean(resendApiKey && emailFrom) : emailProvider === 'sendgrid' ? Boolean(sendgridApiKey && emailFrom) : false
 const authRateBuckets = new Map()
 
@@ -70,18 +65,6 @@ function loadEnv(filePath) {
     acc[key] = value
     return acc
   }, {})
-}
-
-function parseList(value) {
-  return String(value || '')
-    .split(',')
-    .map((item) => item.trim())
-    .filter(Boolean)
-}
-
-function parseInteger(value, fallback) {
-  const parsed = Number.parseInt(String(value || ''), 10)
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback
 }
 
 // ---------------------------------------------------------------------------
@@ -533,7 +516,7 @@ async function generateReply(email, listenerId, message) {
     return { reply: fallbackReply(listenerId), source: 'fallback' }
   }
   const recent = await getRecentMessages(email, listenerId)
-  const messages = [
+  const promptMessages = [
     { role: 'system', content: buildSystemPrompt(listenerId) },
     ...recent.map((item) => ({
       role: item.role === 'assistant' ? 'assistant' : 'user',
@@ -541,50 +524,21 @@ async function generateReply(email, listenerId, message) {
     })),
     { role: 'user', content: message },
   ]
-
-  let tools
-  let composioUserId
-  if (composio) {
-    try {
-      composioUserId = email
-      const sessionConfig = composioToolkits.length ? { toolkits: composioToolkits } : undefined
-      const session = await composio.create(composioUserId, sessionConfig)
-      tools = await session.tools()
-    } catch (error) {
-      log('error', 'composio tool loading failed', { error: error.message, listenerId })
-    }
-  }
-
+  let response
   try {
-    for (let iteration = 0; iteration <= composioMaxToolIterations; iteration += 1) {
-      const response = await openai.chat.completions.create({
-        model: openAiModel,
-        messages,
-        ...(tools?.length ? { tools, tool_choice: 'auto' } : {}),
-      })
-      const assistantMessage = response.choices?.[0]?.message
-      const toolCalls = assistantMessage?.tool_calls || []
-      if (!toolCalls.length) {
-        const reply = assistantMessage?.content?.trim()
-        if (!reply) {
-          return { reply: fallbackReply(listenerId), source: 'fallback' }
-        }
-        return { reply, source: tools?.length ? 'openai-composio' : 'openai' }
-      }
-
-      if (!composioUserId || iteration === composioMaxToolIterations) {
-        log('error', 'composio tool call limit reached', { listenerId, toolCalls: toolCalls.length })
-        return { reply: fallbackReply(listenerId), source: 'fallback-tool-limit' }
-      }
-
-      messages.push(assistantMessage)
-      const toolMessages = await composio.provider.handleToolCalls(composioUserId, response)
-      messages.push(...toolMessages)
-    }
+    response = await openai.chat.completions.create({
+      model: openAiModel,
+      messages: promptMessages,
+    })
   } catch (error) {
-    log('error', 'openai or composio request failed', { error: error.message, listenerId })
+    log('error', 'openai request failed', { error: error.message, listenerId })
     return { reply: fallbackReply(listenerId), source: 'fallback-error' }
   }
+  const reply = response.choices?.[0]?.message?.content?.trim()
+  if (!reply) {
+    return { reply: fallbackReply(listenerId), source: 'fallback' }
+  }
+  return { reply, source: 'openai' }
 }
 
 // ---------------------------------------------------------------------------
@@ -749,8 +703,6 @@ const server = http.createServer(async (req, res) => {
       stripeConfigured: Boolean(stripe && stripePriceId),
       webhookConfigured: Boolean(stripeWebhookSecret),
       modelConfigured: Boolean(openai),
-      composioConfigured: Boolean(composio),
-      composioToolkits,
       devAuthCodes,
       emailProvider,
       emailConfigured: emailProvider === 'disabled' ? devAuthCodes : emailProviderConfigured,
