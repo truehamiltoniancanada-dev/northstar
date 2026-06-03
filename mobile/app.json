@@ -1,0 +1,49 @@
+{
+  "expo": {
+    "name": "Sentryharbor",
+    "slug": "sentryharbor",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "platforms": [
+      "ios",
+      "android"
+    ],
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "scheme": "sentryharbor",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.sentryharbor.app",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "Sentryharbor uses the microphone for optional push-to-talk voice input.",
+        "NSSpeechRecognitionUsageDescription": "Sentryharbor uses speech recognition to turn optional voice input into text before you send it."
+      }
+    },
+    "android": {
+      "package": "com.sentryharbor.app",
+      "permissions": [
+        "RECORD_AUDIO"
+      ],
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      }
+    },
+    "extra": {
+      "apiBaseUrl": "https://api.sentryharbor.com/api",
+      "eas": {
+        "projectId": "replace-with-eas-project-id"
+      }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-secure-store",
+      "expo-web-browser",
+      "expo-speech-recognition"
+    ]
+  }
+}
