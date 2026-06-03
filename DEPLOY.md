@@ -1,4 +1,4 @@
-# Northstar Deployment
+# Sentryharbor Deployment
 
 This app is not a pure static site.
 
@@ -26,7 +26,7 @@ Deploy the Vite frontend to Vercel.
 Required frontend environment variable:
 
 ```bash
-VITE_API_BASE_URL=https://your-api-domain.example.com/api
+VITE_API_BASE_URL=https://api.sentryharbor.com/api
 ```
 
 Build settings:
@@ -50,9 +50,9 @@ Required backend environment variables:
 
 ```bash
 PORT=8787
-APP_URL=https://your-frontend-domain.vercel.app
-API_BASE_URL=https://your-api-domain.example.com
-CORS_ORIGIN=https://your-frontend-domain.vercel.app
+APP_URL=https://www.sentryharbor.com
+API_BASE_URL=https://api.sentryharbor.com
+CORS_ORIGIN=https://www.sentryharbor.com
 DATABASE_URL=postgres://...
 STRIPE_SECRET_KEY=***
 STRIPE_WEBHOOK_SECRET=***
@@ -60,7 +60,7 @@ STRIPE_PRICE_ID=price_...
 OPENAI_API_KEY=***
 OPENAI_MODEL=gpt-4.1-mini
 EMAIL_PROVIDER=sendgrid
-EMAIL_FROM=Northstar <hello@your-domain.example>
+EMAIL_FROM=Sentryharbor <hello@sentryharbor.com>
 SENDGRID_API_KEY=***
 DEV_AUTH_CODES=false
 ```
@@ -77,7 +77,7 @@ The Railway backend uses `node server.js` as its start command (configured in `r
 ## Launch Checklist
 
 1. Backend `/api/health` returns `200`.
-2. Frontend loads with the `Northstar` title.
+2. Frontend loads with the `Sentryharbor` title.
 3. Sign-in code request succeeds.
 4. Verification code email arrives.
 5. Verification login succeeds.
@@ -89,6 +89,6 @@ The Railway backend uses `node server.js` as its start command (configured in `r
 ## Current State
 
 - Frontend root deploy is reachable.
-- Root title was patched from `Wallet Monitor` to `Northstar`.
+- Root title is now `Sentryharbor`.
 - The current Vercel deploy does not serve `/api/*`.
 - A live launch requires deploying the backend separately or refactoring it into Vercel API routes.

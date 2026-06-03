@@ -1,4 +1,4 @@
-# Northstar Local Setup
+# Sentryharbor Local Setup
 
 ## 1. Environment
 
@@ -47,7 +47,7 @@ npm run dev
 
 ## 3. Auth flow
 
-Northstar now uses verification-code auth with server-side sessions.
+Sentryharbor now uses verification-code auth with server-side sessions.
 
 Local dev flow:
 
@@ -70,7 +70,7 @@ Set:
 
 ```env
 EMAIL_PROVIDER=resend
-EMAIL_FROM=Northstar <hello@your-domain.com>
+EMAIL_FROM=Sentryharbor <hello@sentryharbor.com>
 RESEND_API_KEY=re_...
 ```
 
@@ -83,10 +83,11 @@ Behavior:
 
 To enable paid membership checkout:
 
-1. Create a product named `Northstar Core` in Stripe test mode
-2. Create a recurring monthly price for `$24.00`
+1. Create a product named `Sentryharbor Core` in Stripe test mode
+2. Create a recurring monthly price for `$19.00`
 3. Put the resulting `price_...` id into `STRIPE_PRICE_ID`
 4. Add your Stripe test secret key to `STRIPE_SECRET_KEY`
+5. The backend applies a 7-day trial to new checkout subscriptions.
 
 Forward webhooks locally:
 
@@ -127,7 +128,7 @@ Behavior:
 - Membership state is driven by stored Stripe subscription status
 - Chat access is blocked unless membership is active
 - Chat history can be reloaded from `/api/chat/history?listenerId=...`
-- Email captures are stored in SQLite at `data/northstar.db`
+- Email captures are stored in SQLite at `data/sentryharbor.db`
 - Billing management uses the Stripe billing portal when configured
 
 ## 7. Cheapest workable deployment
@@ -159,22 +160,22 @@ Output directory: dist
 Frontend environment variable:
 
 ```env
-VITE_API_BASE_URL=https://your-backend-domain.up.railway.app/api
+VITE_API_BASE_URL=https://api.sentryharbor.com/api
 ```
 
 ### Backend environment variables (Railway)
 
 ```env
 PORT=8787
-APP_URL=https://your-frontend-domain.vercel.app
-API_BASE_URL=https://your-backend-domain.up.railway.app
-CORS_ORIGIN=https://your-frontend-domain.vercel.app
+APP_URL=https://www.sentryharbor.com
+API_BASE_URL=https://api.sentryharbor.com
+CORS_ORIGIN=https://www.sentryharbor.com
 AUTH_RATE_LIMIT_WINDOW_MS=900000
 AUTH_RATE_LIMIT_MAX=5
 DEV_AUTH_CODES=false
-DATABASE_URL=postgres://user:password@host:5432/northstar
+DATABASE_URL=postgres://user:password@host:5432/sentryharbor
 EMAIL_PROVIDER=resend
-EMAIL_FROM=Northstar <hello@your-domain.com>
+EMAIL_FROM=Sentryharbor <hello@sentryharbor.com>
 RESEND_API_KEY=re_...
 STRIPE_SECRET_KEY=sk_...
 STRIPE_WEBHOOK_SECRET=whsec_...
@@ -195,7 +196,7 @@ Important note:
 In Stripe, point the webhook to:
 
 ```text
-https://your-backend-domain.up.railway.app/api/billing/webhook
+https://api.sentryharbor.com/api/billing/webhook
 ```
 
 Listen at minimum for:

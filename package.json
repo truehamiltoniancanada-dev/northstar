@@ -1,4 +1,5 @@
 {
+  "name": "sentryharbor",
   "type": "module",
   "engines": {
     "node": ">=22"
@@ -13,6 +14,7 @@
   "dependencies": {
     "@composio/core": "^0.10.0",
     "@solana/web3.js": "latest",
+    "@vercel/analytics": "^2.0.1",
     "@vitejs/plugin-react": "latest",
     "better-sqlite3": "^11.10.0",
     "lucide-react": "latest",

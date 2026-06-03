@@ -27,16 +27,37 @@ const chatStarters = [
   'I need help getting steady before I make tonight worse.',
 ]
 
-const storageKey = 'northstar.app.state'
+const storageKey = 'sentryharbor.app.state'
 const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL
 const defaultApiBaseUrl = configuredApiBaseUrl || `${window.location.protocol}//${window.location.hostname}:8787/api`
+
+function readSavedState() {
+  const current = window.localStorage.getItem(storageKey)
+  if (current) {
+    return current
+  }
+
+  for (let index = 0; index < window.localStorage.length; index += 1) {
+    const key = window.localStorage.key(index)
+    if (key?.endsWith('.app.state')) {
+      const migrated = window.localStorage.getItem(key)
+      if (migrated) {
+        window.localStorage.setItem(storageKey, migrated)
+        window.localStorage.removeItem(key)
+        return migrated
+      }
+    }
+  }
+
+  return ''
+}
 
 function buildConversation(coach, userName, mood, goal, message) {
   const introName = userName.trim() || 'friend'
   return [
     {
       role: 'system',
-      label: 'Northstar',
+      label: 'Sentryharbor',
       text: `You chose ${coach.name}. ${coach.tone}.`,
     },
     {
@@ -85,7 +106,7 @@ export default function MainExperienceScreen({ selectedCoachId, onChangeCoach })
 
   useEffect(() => {
     try {
-      const raw = window.localStorage.getItem(storageKey)
+      const raw = readSavedState()
       if (!raw) return
       const saved = JSON.parse(raw)
       setIsSignedIn(Boolean(saved.isSignedIn))
@@ -256,8 +277,8 @@ export default function MainExperienceScreen({ selectedCoachId, onChangeCoach })
           role: 'assistant',
           label: coach.name,
           text: modelConfigured
-            ? 'Northstar could not complete the response right now. Try again in a moment.'
-            : 'A real model provider is not configured yet, so Northstar is using fallback support responses right now.',
+            ? 'Sentryharbor could not complete the response right now. Try again in a moment.'
+            : 'A real model provider is not configured yet, so Sentryharbor is using fallback support responses right now.',
         },
       ])
     }
@@ -406,7 +427,7 @@ export default function MainExperienceScreen({ selectedCoachId, onChangeCoach })
             <span> left off.</span>
           </h1>
           <p className="product-copy">
-            Northstar now uses a verification-code sign in flow instead of trusting raw email in the browser.
+            Sentryharbor now uses a verification-code sign in flow instead of trusting raw email in the browser.
           </p>
           <label className="field-label">
             Email address
@@ -452,31 +473,31 @@ export default function MainExperienceScreen({ selectedCoachId, onChangeCoach })
             <span> support flow.</span>
           </h1>
           <p className="product-copy">
-            Northstar now supports a real subscription backend. Start checkout to unlock persistent support history, recurring access,
-            and full session continuity.
+            Start with a 7-day free trial. After the trial, continue at $19/month for all three coaches, saved session history,
+            coach-specific memory, and recurring access when difficult nights show up again.
           </p>
           <div className="gate-price">
-            $24<span>/month</span>
+            One week free trial<span>Then $19/month</span>
           </div>
           <div className="membership-list gate-list">
             <div>
-              <CheckCircle2 size={16} /> Persistent user and chat records in the backend
+              <CheckCircle2 size={16} /> Includes Coach W, Coach H, and Coach O
             </div>
             <div>
-              <CheckCircle2 size={16} /> Stripe-backed recurring membership flow
+              <CheckCircle2 size={16} /> Saved chats and lightweight memory per coach
             </div>
             <div>
-              <CheckCircle2 size={16} /> Real model-backed support responses when configured
+              <CheckCircle2 size={16} /> One week free, then $19/month with billing portal access
             </div>
           </div>
           <button className="button primary auth-button" onClick={beginCheckout} disabled={!apiReady || !stripeConfigured || isLoadingCheckout}>
-            {stripeConfigured ? 'Start checkout' : 'Stripe setup required'} <ArrowRight size={16} />
+            {stripeConfigured ? 'Start free trial' : 'Stripe setup required'} <ArrowRight size={16} />
           </button>
           <p className="product-copy gate-helper">
             Status: {subscriptionStatus}.{' '}
             {!stripeConfigured
-              ? 'Add Stripe test keys and a monthly price ID in the backend environment to enable checkout.'
-              : 'Checkout will open in Stripe test mode.'}
+              ? 'Add Stripe keys and the $19 monthly price ID in the backend environment to enable checkout.'
+              : 'Checkout will open in Stripe. Confirm the active price is $19/month with a 7-day trial before launch.'}
           </p>
         </div>
       </section>
@@ -495,8 +516,14 @@ export default function MainExperienceScreen({ selectedCoachId, onChangeCoach })
             <span> tonight.</span>
           </h1>
           <p className="product-copy">
-            You selected {coach.name}. Set the mood, name your goal, and begin a guided support conversation.
+            You selected {coach.name}. Set the emotional route, name what would help, and start with enough context for the first reply
+            to meet the night you are actually in.
           </p>
+          <div className={`coach-insight-card ${coach.accent}`}>
+            <strong>{coach.tone}</strong>
+            <span>{coach.whenToChoose}</span>
+            <span>{coach.memoryNote}</span>
+          </div>
 
           <div className="progress-row" aria-hidden="true">
             <span className={step >= 1 ? 'progress-dot active' : 'progress-dot'} />
@@ -506,6 +533,10 @@ export default function MainExperienceScreen({ selectedCoachId, onChangeCoach })
           {step === 1 ? (
             <div className="flow-card">
               <div className="flow-heading">What are you walking in with?</div>
+              <p>
+                This helps Sentryharbor route the first response: grounding for overwhelm, warmth for shame or loneliness, accountability for
+                avoidance, and reality-testing for distorted stories.
+              </p>
               <div className="chip-grid">
                 {moods.map((item) => (
                   <button key={item} className={item === selectedMood ? 'choice-chip selected' : 'choice-chip'} onClick={() => setSelectedMood(item)}>
@@ -523,8 +554,12 @@ export default function MainExperienceScreen({ selectedCoachId, onChangeCoach })
           {step === 2 ? (
             <div className="flow-card">
               <div className="flow-heading">Set up the first exchange</div>
+              <p>
+                A specific first message helps your coach remember the useful stuff over time: triggers, rituals, commitments, distortions,
+                and wording that actually reaches you.
+              </p>
               <label className="field-label">
-                What should Northstar call you?
+                What should Sentryharbor call you?
                 <input className="text-input" value={userName} onChange={(event) => setUserName(event.target.value)} placeholder="Optional" />
               </label>
               <label className="field-label">
@@ -572,8 +607,8 @@ export default function MainExperienceScreen({ selectedCoachId, onChangeCoach })
           </div>
 
           <div className="safety-note">
-            <ShieldAlert size={16} /> Northstar is for emotional support and reflection. In a crisis, the interface should route to urgent
-            human help.
+            <ShieldAlert size={16} /> Sentryharbor is emotional support, not therapy, diagnosis, or emergency care. In a crisis, it routes to
+            urgent human help.
           </div>
         </aside>
 
@@ -585,7 +620,7 @@ export default function MainExperienceScreen({ selectedCoachId, onChangeCoach })
               <p>{coach.tone}</p>
             </div>
             <div className="chat-badge">
-              <Compass size={16} /> {modelConfigured ? 'Northstar AI live' : 'Northstar fallback mode'}
+              <Compass size={16} /> {modelConfigured ? 'Sentryharbor AI live' : 'Sentryharbor fallback mode'}
             </div>
           </div>
 
@@ -600,6 +635,7 @@ export default function MainExperienceScreen({ selectedCoachId, onChangeCoach })
                   <strong>{coach.name}</strong>
                   <span>{selectedMood}</span>
                   <span>Goal: {goal}</span>
+                  <span>Memory: coach-specific and lightweight</span>
                 </div>
               </div>
             ) : (
@@ -657,23 +693,23 @@ export default function MainExperienceScreen({ selectedCoachId, onChangeCoach })
           <span className="eyebrow">Membership</span>
           <h2>One subscription. Three emotional tones. Ongoing support.</h2>
           <p>
-            Northstar is positioned as a monthly support product, with flexible listener switching, saved conversation history, and guided
-            rituals that help users come back before things escalate.
+            Start with a one week free trial. Continue at $19/month after the trial for flexible coach switching, saved conversation
+            history, coach-specific memory, and guided resets that help users come back before things escalate.
           </p>
         </div>
         <div className="membership-card">
           <div className="membership-price">
-            $24<span>/month</span>
+            One week free trial<span>Then $19/month</span>
           </div>
           <div className="membership-list">
             <div>
-              <CheckCircle2 size={16} /> Unlimited listener switching
+              <CheckCircle2 size={16} /> Includes all 3 coaches
             </div>
             <div>
-              <CheckCircle2 size={16} /> Guided sessions and saved chats
+              <CheckCircle2 size={16} /> Guided sessions, saved chats, and coach memory
             </div>
             <div>
-              <CheckCircle2 size={16} /> Reflection prompts and daily resets
+              <CheckCircle2 size={16} /> 7-day free trial, then $19/month
             </div>
           </div>
         </div>
@@ -693,8 +729,8 @@ export default function MainExperienceScreen({ selectedCoachId, onChangeCoach })
               Drop your email and lock in a better start.
             </h2>
             <p className="product-copy">
-              Join the list and get the founding member rate locked for 3 months plus the Northstar Reset Pack: guided grounding prompts,
-              recovery check-ins, and a first-week ritual plan.
+              Join the list for the Sentryharbor launch offer: a one week free trial, then $19/month, plus the Sentryharbor Reset Pack
+              with guided grounding prompts, recovery check-ins, and a first-week ritual plan.
             </p>
             <label className="field-label">
               Best email

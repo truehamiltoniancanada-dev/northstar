@@ -8,11 +8,25 @@ export default function HomeScreen({ onContinue }) {
         <span className="eyebrow">Welcome</span>
         <h1 className="product-title">
           Find your
-          <span> Northstar.</span>
+          <span> Sentryharbor.</span>
         </h1>
         <p className="product-copy">
-          A steady guide for difficult nights. Start by choosing the coach voice you want with you tonight.
+          A paid emotional support membership for difficult nights, spirals, shame, loneliness, and confusion. It is not therapy or emergency care.
         </p>
+        <div className="intro-list">
+          <div>
+            <strong>Three coaches</strong>
+            <span>Pick calm strategy, warm accountability, or blunt clarity depending on the night.</span>
+          </div>
+          <div>
+            <strong>Useful memory</strong>
+            <span>Each coach keeps lightweight notes on your triggers, rituals, commitments, and repeat loops.</span>
+          </div>
+          <div>
+            <strong>Membership access</strong>
+            <span>Subscription unlocks saved chat history, coach switching, and live model-backed support when configured.</span>
+          </div>
+        </div>
         <div className="panel-actions">
           <button className="button primary auth-button" onClick={onContinue}>
             Choose your coach <ArrowRight size={16} />

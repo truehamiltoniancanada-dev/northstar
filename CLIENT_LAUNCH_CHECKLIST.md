@@ -1,4 +1,4 @@
-# Northstar — Launch Checklist
+# Sentryharbor — Launch Checklist
 
 Everything in this document requires action on your end. The code is ready to deploy.
 
@@ -13,21 +13,21 @@ Everything in this document requires action on your end. The code is ready to de
 | Variable | Value |
 |---|---|
 | `PORT` | `8787` |
-| `APP_URL` | Your Vercel frontend URL (e.g. `https://northstar.vercel.app`) |
-| `API_BASE_URL` | Your Railway backend URL (e.g. `https://northstar.up.railway.app`) |
-| `CORS_ORIGIN` | Your Vercel frontend URL |
+| `APP_URL` | `https://www.sentryharbor.com` |
+| `API_BASE_URL` | Your backend URL (e.g. `https://api.sentryharbor.com`) |
+| `CORS_ORIGIN` | `https://www.sentryharbor.com` |
 | `DATABASE_URL` | Set automatically by the Railway Postgres plugin |
 | `DEV_AUTH_CODES` | `false` |
 | `OPENAI_API_KEY` | Your OpenAI key |
 | `OPENAI_MODEL` | `gpt-4.1-mini` |
 | `STRIPE_SECRET_KEY` | Your Stripe live secret key |
 | `STRIPE_WEBHOOK_SECRET` | From Stripe → Webhooks (see section 3) |
-| `STRIPE_PRICE_ID` | Your $24/month price ID |
+| `STRIPE_PRICE_ID` | Your $19/month price ID |
 | `EMAIL_PROVIDER` | `sendgrid` or `resend` |
 | `EMAIL_FROM` | Your verified sender address |
 | `SENDGRID_API_KEY` | Your SendGrid key (or `RESEND_API_KEY` if using Resend) |
 
-4. After deploy, visit `https://your-railway-domain/api/health` — every field should show `true` or `postgres`.
+4. After deploy, visit `https://api.sentryharbor.com/api/health` — every field should show `true` or `postgres`.
 
 ---
 
@@ -38,7 +38,7 @@ Everything in this document requires action on your end. The code is ready to de
 
 | Variable | Value |
 |---|---|
-| `VITE_API_BASE_URL` | `https://your-railway-domain.up.railway.app/api` |
+| `VITE_API_BASE_URL` | `https://api.sentryharbor.com/api` |
 
 3. Deploy. Vercel will run `npm run build` and serve the `dist/` folder automatically.
 
@@ -49,7 +49,7 @@ Everything in this document requires action on your end. The code is ready to de
 This step is required for subscription activation to work after payment.
 
 1. Go to [dashboard.stripe.com](https://dashboard.stripe.com) → **Developers → Webhooks → Add endpoint**.
-2. Set the URL to: `https://your-railway-domain.up.railway.app/api/billing/webhook`
+2. Set the URL to: `https://api.sentryharbor.com/api/billing/webhook`
 3. Select these events:
    - `checkout.session.completed`
    - `customer.subscription.updated`
@@ -63,10 +63,11 @@ This step is required for subscription activation to work after payment.
 
 Once both services are live, verify end-to-end:
 
-- [ ] Visit your Vercel URL — the app loads
+- [ ] Visit `https://www.sentryharbor.com` — the app loads securely
+- [ ] Visit `https://sentryharbor.com` — it redirects to `https://www.sentryharbor.com`
 - [ ] Enter your email → receive a verification code email
 - [ ] Sign in with the code
-- [ ] Click Subscribe → Stripe checkout opens with the $24/month price
+- [ ] Click Subscribe → Stripe checkout opens with a 7-day free trial and then $19/month
 - [ ] Complete a test payment (Stripe test card: `4242 4242 4242 4242`, any future date, any CVC)
 - [ ] Confirm membership activates and chat unlocks
 - [ ] Send a message — AI responds

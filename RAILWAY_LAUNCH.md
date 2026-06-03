@@ -1,6 +1,6 @@
 # Railway Launch Plan
 
-This is the fastest way to launch Northstar in production.
+This is the fastest way to launch Sentryharbor in production.
 
 ## Architecture
 
@@ -39,17 +39,17 @@ Healthcheck path is set to `/api/health` in `railway.json` so Railway marks the 
 Set these in the Railway service:
 
 ```bash
-APP_URL=https://northstar-git-main-truehamiltoniancanada-devs-projects.vercel.app
-API_BASE_URL=https://your-railway-backend-domain.up.railway.app
-CORS_ORIGIN=https://northstar-git-main-truehamiltoniancanada-devs-projects.vercel.app
-DATABASE_URL=postgres://user:password@host:5432/northstar
+APP_URL=https://www.sentryharbor.com
+API_BASE_URL=https://api.sentryharbor.com
+CORS_ORIGIN=https://www.sentryharbor.com
+DATABASE_URL=postgres://user:password@host:5432/sentryharbor
 STRIPE_SECRET_KEY=***
 STRIPE_WEBHOOK_SECRET=***
 STRIPE_PRICE_ID=price_...
 OPENAI_API_KEY=***
 OPENAI_MODEL=gpt-4.1-mini
 EMAIL_PROVIDER=sendgrid
-EMAIL_FROM=Northstar <hello@your-domain.example>
+EMAIL_FROM=Sentryharbor <hello@sentryharbor.com>
 SENDGRID_API_KEY=***
 DEV_AUTH_CODES=false
 ```
@@ -65,7 +65,7 @@ Notes:
 Set this in the Vercel project:
 
 ```bash
-VITE_API_BASE_URL=https://your-railway-backend-domain.up.railway.app/api
+VITE_API_BASE_URL=https://api.sentryharbor.com/api
 ```
 
 Then redeploy the frontend.
@@ -75,7 +75,7 @@ Then redeploy the frontend.
 In Stripe, point the webhook to:
 
 ```bash
-https://your-railway-backend-domain.up.railway.app/api/billing/webhook
+https://api.sentryharbor.com/api/billing/webhook
 ```
 
 Events to include at minimum:
@@ -86,12 +86,12 @@ Events to include at minimum:
 
 ## Smoke Test Order
 
-1. Open `https://your-railway-backend-domain.up.railway.app/api/health`
+1. Open `https://api.sentryharbor.com/api/health`
 2. Confirm `ok: true`
 3. Confirm `emailConfigured: true`
 4. Confirm `devAuthCodes: false`
 5. Redeploy Vercel frontend with the Railway API URL
-6. Load the frontend and confirm the title is `Northstar`
+6. Load the frontend and confirm the title is `Sentryharbor`
 7. Request a verification code
 8. Confirm the code email arrives
 9. Sign in successfully

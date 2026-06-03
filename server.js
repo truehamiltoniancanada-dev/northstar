@@ -96,7 +96,7 @@ async function createDatabase() {
 }
 
 function createSqliteAdapter() {
-  const dbPath = path.join(process.cwd(), 'data', 'northstar.db')
+  const dbPath = path.join(process.cwd(), 'data', 'sentryharbor.db')
   fs.mkdirSync(path.dirname(dbPath), { recursive: true })
   const sqlite = new Database(dbPath)
 
@@ -148,6 +148,18 @@ function createSqliteAdapter() {
       attempts INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL,
       expires_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS coach_memories (
+      email TEXT NOT NULL,
+      listener_id TEXT NOT NULL,
+      recurring_triggers TEXT NOT NULL DEFAULT '[]',
+      stabilizing_rituals TEXT NOT NULL DEFAULT '[]',
+      avoidance_patterns TEXT NOT NULL DEFAULT '[]',
+      commitments TEXT NOT NULL DEFAULT '[]',
+      distortions TEXT NOT NULL DEFAULT '[]',
+      helpful_wording TEXT NOT NULL DEFAULT '[]',
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (email, listener_id)
     );
   `)
 
@@ -232,6 +244,18 @@ async function createPostgresAdapter(connectionString) {
       attempts INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL,
       expires_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS coach_memories (
+      email TEXT NOT NULL,
+      listener_id TEXT NOT NULL,
+      recurring_triggers TEXT NOT NULL DEFAULT '[]',
+      stabilizing_rituals TEXT NOT NULL DEFAULT '[]',
+      avoidance_patterns TEXT NOT NULL DEFAULT '[]',
+      commitments TEXT NOT NULL DEFAULT '[]',
+      distortions TEXT NOT NULL DEFAULT '[]',
+      helpful_wording TEXT NOT NULL DEFAULT '[]',
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (email, listener_id)
     );
   `)
 
@@ -402,27 +426,364 @@ function serializeUser(user) {
 // Chat helpers
 // ---------------------------------------------------------------------------
 
+const coachProfiles = {
+  'coach-w': {
+    id: 'coach-w',
+    legacyId: 'steady',
+    label: 'Coach W',
+    modeName: 'grounded strategic protector',
+    prompt: [
+      'You are Coach W: grounded, strategic, calm, and quietly protective.',
+      'Stabilize first. Use a slower cadence. Name the pattern before giving advice.',
+      'Regulate before problem-solving: one breath, one fact, one next move.',
+      'Sound measured and fatherly without being patronizing.',
+    ],
+    routing: {
+      overwhelm_anxiety: 'Emphasize grounding, body regulation, and reducing the night to one manageable step.',
+      shame_self_attack: 'Slow the self-attack down, separate action from identity, and protect dignity before repair.',
+      loneliness_comfort: 'Offer steady presence and remind them they do not need to solve loneliness with a risky action.',
+      avoidance_excuses: 'Name the avoidance pattern calmly, then ask for one small honest move.',
+      distortion_catastrophizing: 'Reality-test gently by separating facts, predictions, and fear stories.',
+    },
+  },
+  'coach-h': {
+    id: 'coach-h',
+    legacyId: 'coach',
+    label: 'Coach H',
+    modeName: 'warm honest accountability coach',
+    prompt: [
+      'You are Coach H: warm, honest, accountability-first, and emotionally validating.',
+      'Lead with care, then tell the truth plainly. No shame, no coddling.',
+      'Help the user say the honest version out loud and choose the next right action.',
+      'Sound loving and human, like someone who believes they can handle the truth.',
+    ],
+    routing: {
+      overwhelm_anxiety: 'Validate the emotion, then help them choose one stabilizing action instead of spinning.',
+      shame_self_attack: 'Interrupt shame with warmth and accountability: what happened, what matters, what repair is possible.',
+      loneliness_comfort: 'Offer comfort first, then steer them toward connection that does not cost their self-respect.',
+      avoidance_excuses: 'Call out the excuse kindly and ask for the smallest accountable promise.',
+      distortion_catastrophizing: 'Reflect the fear compassionately, then make them tell the factual version.',
+    },
+  },
+  'coach-o': {
+    id: 'coach-o',
+    legacyId: 'straight',
+    label: 'Coach O',
+    modeName: 'sharp clear dignity-first coach',
+    prompt: [
+      'You are Coach O: sharp, clear, blunt, dignity-first.',
+      'Cut through distortion quickly. No self-pity, no cruelty.',
+      'Use reality-testing, strong boundaries, and concise decisive next actions.',
+      'Sound incisive and protective of the user dignity, not mean.',
+    ],
+    routing: {
+      overwhelm_anxiety: 'Strip the situation to facts, stop the spiral behavior, and give one decisive stabilizing action.',
+      shame_self_attack: 'Reject the self-attack, keep accountability, and move them back to dignity.',
+      loneliness_comfort: 'Name the need without letting it justify a bad bargain or weak boundary.',
+      avoidance_excuses: 'Challenge the excuse directly and require one clean action now.',
+      distortion_catastrophizing: 'Call the distortion what it is, reality-test it, and choose the next move.',
+    },
+  },
+}
+
+const listenerAliases = {
+  steady: 'coach-w',
+  coach: 'coach-h',
+  straight: 'coach-o',
+  'coach-w': 'coach-w',
+  'coach-h': 'coach-h',
+  'coach-o': 'coach-o',
+}
+
+const emotionalRoutes = {
+  overwhelm_anxiety: {
+    label: 'overwhelm/anxiety',
+    keywords: ['anxious', 'anxiety', 'panic', 'spiral', 'spiraling', 'overwhelmed', 'cannot breathe', "can't breathe", 'racing', 'shutting down', 'stressed', 'scared'],
+    directive: 'Treat this as a regulation-first moment. Reduce intensity before decisions.',
+  },
+  shame_self_attack: {
+    label: 'shame/self-attack',
+    keywords: ['ashamed', 'shame', 'i hate myself', 'hate myself', 'stupid', 'worthless', 'pathetic', 'failure', 'loser', 'disgusting', 'ruined everything', 'idiot'],
+    directive: 'Interrupt identity-level self-attack while preserving responsibility and repair.',
+  },
+  loneliness_comfort: {
+    label: 'loneliness/need for comfort',
+    keywords: ['lonely', 'alone', 'no one cares', 'miss them', 'need someone', 'empty', 'abandoned', 'ignored', 'unwanted', 'isolated'],
+    directive: 'Offer comfort and connection without encouraging dependency, chasing, or unsafe contact.',
+  },
+  avoidance_excuses: {
+    label: 'avoidance/excuses',
+    keywords: ['avoid', 'avoiding', 'procrastinate', 'put it off', 'later', 'excuse', 'scrolling', 'doomscroll', 'numbing', 'skip', 'hide from', 'i should but'],
+    directive: 'Name the avoidance clearly and shrink the action until it is hard to refuse.',
+  },
+  distortion_catastrophizing: {
+    label: 'distortion/catastrophizing',
+    keywords: ['always', 'never', 'everyone hates me', 'nobody likes me', 'it is over', "it's over", 'catastrophe', 'worst', 'ruined', 'nothing will', 'no point', 'they all'],
+    directive: 'Separate facts from predictions, absolutes, and fear stories.',
+  },
+}
+
+function getCoachProfile(listenerId) {
+  return coachProfiles[sanitizeListenerId(listenerId)] || coachProfiles['coach-w']
+}
+
+function getListenerQueryIds(listenerId) {
+  const profile = getCoachProfile(listenerId)
+  return [profile.id, profile.legacyId]
+}
+
 async function saveChatMessage(email, listenerId, role, label, text) {
+  const profile = getCoachProfile(listenerId)
   await db.run(
     'INSERT INTO chat_messages (email, listener_id, role, label, text, created_at) VALUES ($1, $2, $3, $4, $5, $6)',
-    email, listenerId, role, label, text, new Date().toISOString()
+    email, profile.id, role, label, text, new Date().toISOString()
   )
 }
 
 async function getRecentMessages(email, listenerId) {
+  const [primaryId, legacyId] = getListenerQueryIds(listenerId)
   const rows = await db.all(
-    'SELECT role, label, text FROM chat_messages WHERE email = $1 AND listener_id = $2 ORDER BY id DESC LIMIT 8',
-    email, listenerId
+    'SELECT role, label, text FROM chat_messages WHERE email = $1 AND listener_id IN ($2, $3) ORDER BY id DESC LIMIT 8',
+    email, primaryId, legacyId
   )
   return rows.reverse()
 }
 
 async function getChatHistory(email, listenerId, limit = 40) {
+  const [primaryId, legacyId] = getListenerQueryIds(listenerId)
   const rows = await db.all(
-    'SELECT role, label, text, created_at FROM chat_messages WHERE email = $1 AND listener_id = $2 ORDER BY id DESC LIMIT $3',
-    email, listenerId, limit
+    'SELECT role, label, text, created_at FROM chat_messages WHERE email = $1 AND listener_id IN ($2, $3) ORDER BY id DESC LIMIT $4',
+    email, primaryId, legacyId, limit
   )
   return rows.reverse()
+}
+
+function parseMemoryList(value) {
+  try {
+    const parsed = JSON.parse(value || '[]')
+    return Array.isArray(parsed) ? parsed.filter(Boolean).map((item) => String(item)) : []
+  } catch {
+    return []
+  }
+}
+
+function emptyCoachMemory(listenerId) {
+  const profile = getCoachProfile(listenerId)
+  return {
+    listenerId: profile.id,
+    coach: profile.label,
+    recurringTriggers: [],
+    stabilizingRituals: [],
+    avoidancePatterns: [],
+    commitments: [],
+    distortions: [],
+    helpfulWording: [],
+    updatedAt: null,
+  }
+}
+
+function serializeCoachMemory(row, listenerId) {
+  const base = emptyCoachMemory(listenerId)
+  if (!row) {
+    return base
+  }
+  return {
+    ...base,
+    recurringTriggers: parseMemoryList(row.recurring_triggers),
+    stabilizingRituals: parseMemoryList(row.stabilizing_rituals),
+    avoidancePatterns: parseMemoryList(row.avoidance_patterns),
+    commitments: parseMemoryList(row.commitments),
+    distortions: parseMemoryList(row.distortions),
+    helpfulWording: parseMemoryList(row.helpful_wording),
+    updatedAt: row.updated_at || null,
+  }
+}
+
+async function getCoachMemory(email, listenerId) {
+  const profile = getCoachProfile(listenerId)
+  const row = await db.get('SELECT * FROM coach_memories WHERE email = $1 AND listener_id = $2', email, profile.id)
+  return serializeCoachMemory(row, profile.id)
+}
+
+function toMemoryRow(memory) {
+  return {
+    recurring_triggers: JSON.stringify(memory.recurringTriggers || []),
+    stabilizing_rituals: JSON.stringify(memory.stabilizingRituals || []),
+    avoidance_patterns: JSON.stringify(memory.avoidancePatterns || []),
+    commitments: JSON.stringify(memory.commitments || []),
+    distortions: JSON.stringify(memory.distortions || []),
+    helpful_wording: JSON.stringify(memory.helpfulWording || []),
+  }
+}
+
+function clipMemory(value, max = 140) {
+  const cleaned = String(value || '').replace(/\s+/g, ' ').trim()
+  if (!cleaned) return ''
+  return cleaned.length > max ? `${cleaned.slice(0, max - 1).trim()}...` : cleaned
+}
+
+function addMemoryItem(items, value, maxItems = 5) {
+  const cleaned = clipMemory(value)
+  if (!cleaned) {
+    return items
+  }
+  const withoutDuplicate = items.filter((item) => item.toLowerCase() !== cleaned.toLowerCase())
+  return [...withoutDuplicate, cleaned].slice(-maxItems)
+}
+
+function includesAny(text, keywords) {
+  return keywords.some((keyword) => text.includes(keyword))
+}
+
+function detectEmotionalSignal(text) {
+  if (detectCrisis(text)) {
+    return 'crisis_safety_risk'
+  }
+  const lower = String(text || '').toLowerCase()
+  const scored = Object.entries(emotionalRoutes)
+    .map(([id, route]) => ({
+      id,
+      score: route.keywords.reduce((count, keyword) => count + (lower.includes(keyword) ? 1 : 0), 0),
+    }))
+    .sort((a, b) => b.score - a.score)
+  return scored[0]?.score > 0 ? scored[0].id : 'overwhelm_anxiety'
+}
+
+function extractCommitment(text) {
+  const match = String(text).match(/\b(i(?:'ll| will| am going to| promise to| need to| have to| should)\b[^.!?\n]{0,120})/i)
+  return match ? clipMemory(match[1]) : ''
+}
+
+function extractMemoryUpdates(message, emotionalSignal) {
+  const lower = String(message || '').toLowerCase()
+  const updates = {
+    recurringTriggers: [],
+    stabilizingRituals: [],
+    avoidancePatterns: [],
+    commitments: [],
+    distortions: [],
+    helpfulWording: [],
+  }
+
+  if (includesAny(lower, ['work', 'boss', 'job', 'meeting', 'deadline'])) {
+    updates.recurringTriggers.push('Work pressure can pull them off center.')
+  }
+  if (includesAny(lower, ['argument', 'fight', 'conversation', 'replaying', 'said', 'text'])) {
+    updates.recurringTriggers.push('Replayed conversations or messages can become a difficult-night trigger.')
+  }
+  if (includesAny(lower, ['family', 'parent', 'mom', 'dad', 'partner', 'ex', 'friend'])) {
+    updates.recurringTriggers.push('Close relationships can intensify the spiral and need careful handling.')
+  }
+  if (emotionalSignal === 'loneliness_comfort') {
+    updates.recurringTriggers.push('Loneliness and feeling unseen can make risky contact feel tempting.')
+  }
+
+  if (includesAny(lower, ['breathe', 'breath', 'ground', 'grounding', 'slow down'])) {
+    updates.stabilizingRituals.push('Slowing down and grounding language are useful stabilizers.')
+  }
+  if (includesAny(lower, ['walk', 'outside', 'fresh air'])) {
+    updates.stabilizingRituals.push('A short walk or fresh air may help reset the night.')
+  }
+  if (includesAny(lower, ['shower', 'water', 'tea', 'eat', 'food'])) {
+    updates.stabilizingRituals.push('Basic body care like water, food, or a shower can help them return to center.')
+  }
+  if (includesAny(lower, ['journal', 'write it down', 'notes'])) {
+    updates.stabilizingRituals.push('Writing the honest version down can help organize the spiral.')
+  }
+
+  if (emotionalSignal === 'avoidance_excuses' || includesAny(lower, ['scroll', 'doomscroll', 'avoid', 'put it off', 'procrastinate', 'hide'])) {
+    updates.avoidancePatterns.push('Avoidance shows up as delaying, numbing, or staying vague.')
+  }
+  if (includesAny(lower, ['about to text', 'text someone', 'call them', 'dm', 'message them', 'wrong reason'])) {
+    updates.avoidancePatterns.push('Reaching for contact in an activated state can make the night worse.')
+  }
+
+  const commitment = extractCommitment(message)
+  if (commitment) {
+    updates.commitments.push(commitment)
+  }
+
+  if (emotionalSignal === 'distortion_catastrophizing' || includesAny(lower, ['always', 'never', 'everyone hates me', 'nobody likes me', 'ruined', 'worst'])) {
+    updates.distortions.push('Under stress, absolute or catastrophic wording can overtake the facts.')
+  }
+  if (emotionalSignal === 'shame_self_attack') {
+    updates.distortions.push('Shame can turn a behavior into an identity-level attack.')
+  }
+
+  if (includesAny(lower, ['gentle', 'soft', 'kind'])) {
+    updates.helpfulWording.push('Gentle language lands better when they are flooded.')
+  }
+  if (includesAny(lower, ['direct', 'honest', 'blunt', 'call me out', 'no sugarcoat'])) {
+    updates.helpfulWording.push('Direct, honest wording helps when it stays tied to dignity.')
+  }
+  if (includesAny(lower, ['stay with me', 'comfort', 'reassure'])) {
+    updates.helpfulWording.push('Steady reassurance helps before asking for action.')
+  }
+
+  return updates
+}
+
+function mergeMemory(memory, updates) {
+  return {
+    ...memory,
+    recurringTriggers: updates.recurringTriggers.reduce((items, item) => addMemoryItem(items, item), memory.recurringTriggers || []),
+    stabilizingRituals: updates.stabilizingRituals.reduce((items, item) => addMemoryItem(items, item), memory.stabilizingRituals || []),
+    avoidancePatterns: updates.avoidancePatterns.reduce((items, item) => addMemoryItem(items, item), memory.avoidancePatterns || []),
+    commitments: updates.commitments.reduce((items, item) => addMemoryItem(items, item), memory.commitments || []),
+    distortions: updates.distortions.reduce((items, item) => addMemoryItem(items, item), memory.distortions || []),
+    helpfulWording: updates.helpfulWording.reduce((items, item) => addMemoryItem(items, item), memory.helpfulWording || []),
+  }
+}
+
+function hasMemoryUpdates(updates) {
+  return Object.values(updates).some((items) => items.length > 0)
+}
+
+async function updateCoachMemory(email, listenerId, message, emotionalSignal) {
+  if (emotionalSignal === 'crisis_safety_risk') {
+    return { updated: false, memory: await getCoachMemory(email, listenerId) }
+  }
+  const updates = extractMemoryUpdates(message, emotionalSignal)
+  const current = await getCoachMemory(email, listenerId)
+  if (!hasMemoryUpdates(updates)) {
+    return { updated: false, memory: current }
+  }
+  const next = mergeMemory(current, updates)
+  const row = toMemoryRow(next)
+  const updatedAt = new Date().toISOString()
+  await db.run(`
+    INSERT INTO coach_memories (
+      email,
+      listener_id,
+      recurring_triggers,
+      stabilizing_rituals,
+      avoidance_patterns,
+      commitments,
+      distortions,
+      helpful_wording,
+      updated_at
+    )
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    ON CONFLICT (email, listener_id) DO UPDATE SET
+      recurring_triggers = EXCLUDED.recurring_triggers,
+      stabilizing_rituals = EXCLUDED.stabilizing_rituals,
+      avoidance_patterns = EXCLUDED.avoidance_patterns,
+      commitments = EXCLUDED.commitments,
+      distortions = EXCLUDED.distortions,
+      helpful_wording = EXCLUDED.helpful_wording,
+      updated_at = EXCLUDED.updated_at
+  `,
+    email,
+    getCoachProfile(listenerId).id,
+    row.recurring_triggers,
+    row.stabilizing_rituals,
+    row.avoidance_patterns,
+    row.commitments,
+    row.distortions,
+    row.helpful_wording,
+    updatedAt
+  )
+  return { updated: true, memory: { ...next, updatedAt } }
 }
 
 // ---------------------------------------------------------------------------
@@ -446,8 +807,8 @@ async function deliverVerificationCode(email, code) {
       body: JSON.stringify({
         from: emailFrom,
         to: [email],
-        subject: 'Your Northstar sign-in code',
-        text: `Your Northstar verification code is ${code}. It expires in 10 minutes.`,
+        subject: 'Your Sentryharbor sign-in code',
+        text: `Your Sentryharbor verification code is ${code}. It expires in 10 minutes.`,
       }),
     })
     if (!response.ok) {
@@ -469,8 +830,8 @@ async function deliverVerificationCode(email, code) {
       body: JSON.stringify({
         personalizations: [{ to: [{ email }] }],
         from: { email: emailFrom },
-        subject: 'Your Northstar sign-in code',
-        content: [{ type: 'text/plain', value: `Your Northstar verification code is ${code}. It expires in 10 minutes.` }],
+        subject: 'Your Sentryharbor sign-in code',
+        content: [{ type: 'text/plain', value: `Your Sentryharbor verification code is ${code}. It expires in 10 minutes.` }],
       }),
     })
     if (!response.ok) {
@@ -508,38 +869,91 @@ function detectCrisis(text) {
   return crisisKeywords.some(kw => lower.includes(kw));
 }
 
-function buildSystemPrompt(listenerId) {
-  if (listenerId === 'steady') {
-    return 'You are Northstar in Steady Presence mode. Respond calmly, warmly, and clearly. Do not roleplay a therapist. Be emotionally supportive, grounded, brief, and practical. Never claim to provide emergency care or diagnosis.'
+function formatMemoryForPrompt(memory) {
+  const sections = [
+    ['Recurring triggers', memory.recurringTriggers],
+    ['Stabilizing rituals', memory.stabilizingRituals],
+    ['Avoidance patterns', memory.avoidancePatterns],
+    ['Promises or commitments', memory.commitments],
+    ['Common distortions', memory.distortions],
+    ['Helpful wording', memory.helpfulWording],
+  ]
+    .filter(([, items]) => Array.isArray(items) && items.length > 0)
+    .map(([label, items]) => `${label}: ${items.join(' | ')}`)
+
+  if (!sections.length) {
+    return 'No durable coach memory yet. Listen for useful patterns without pretending to know more than the user has shared.'
   }
-  if (listenerId === 'coach') {
-    return 'You are Northstar in Caring Coach mode. Respond warmly but directly. Be encouraging, honest, and accountable without being cruel. Do not roleplay a therapist. Never claim to provide emergency care or diagnosis.'
-  }
-  return 'You are Northstar in Straight Shooter mode. Respond bluntly and clearly, but not abusively. Prioritize clarity, realism, and useful next actions. Do not roleplay a therapist. Never claim to provide emergency care or diagnosis.'
+
+  return [
+    'Use this coach-specific memory lightly, like you remember how this user tends to get pulled off center.',
+    'Do not recite it as a summary or imply surveillance.',
+    ...sections,
+  ].join('\n')
 }
 
-function fallbackReply(listenerId) {
-  if (listenerId === 'steady') {
-    return 'Let us slow this down. Start with one true sentence about what is happening, then choose one calming action you can do in the next ten minutes.'
+function buildSystemPrompt(listenerId, emotionalSignal, memory) {
+  const profile = getCoachProfile(listenerId)
+  const route = emotionalRoutes[emotionalSignal]
+  const coachRoute = profile.routing[emotionalSignal] || profile.routing.overwhelm_anxiety
+
+  return [
+    `You are Sentryharbor ${profile.label}, the ${profile.modeName}.`,
+    'Sentryharbor is paid emotional support for difficult nights, spirals, overwhelm, shame, loneliness, and emotional confusion.',
+    'It is not therapy, not diagnosis, and not emergency care. Never claim to diagnose or provide clinical treatment.',
+    'If the user indicates imminent self-harm, suicide, or danger, prioritize urgent human help and crisis resources.',
+    ...profile.prompt,
+    `Current emotional route: ${route?.label || 'overwhelm/anxiety'}. ${route?.directive || emotionalRoutes.overwhelm_anxiety.directive}`,
+    `Coach-specific routing: ${coachRoute}`,
+    formatMemoryForPrompt(memory),
+    'Response shape: 3 to 7 short sentences. Be concrete. Avoid generic wellness platitudes. End with one clear next action or question.',
+  ].join('\n')
+}
+
+function fallbackReply(listenerId, emotionalSignal = 'overwhelm_anxiety') {
+  const profile = getCoachProfile(listenerId)
+  if (profile.id === 'coach-w') {
+    if (emotionalSignal === 'shame_self_attack') {
+      return 'Slow down. That is shame trying to turn one moment into your whole identity. Start with one fact, not a verdict: what happened, what part is yours, and what repair is possible?'
+    }
+    if (emotionalSignal === 'distortion_catastrophizing') {
+      return 'Let us separate the fear from the facts. Name what you know for certain, then name what your mind is predicting. We solve the next ten minutes, not the entire future.'
+    }
+    return 'Take one slower breath. You do not have to solve the whole night at once. Name the pattern, put both feet on the floor, and choose one calming action for the next ten minutes.'
   }
-  if (listenerId === 'coach') {
-    return 'I am with you, but I want the honest version. What is one action that would make tomorrow easier instead of harder?'
+  if (profile.id === 'coach-h') {
+    if (emotionalSignal === 'avoidance_excuses') {
+      return 'I get why you want to dodge it, and I am not going to shame you for that. But love tells the truth: avoiding this is making tomorrow harder. What is the smallest honest action you can take now?'
+    }
+    if (emotionalSignal === 'loneliness_comfort') {
+      return 'I am with you. Wanting comfort is not weakness, but do not trade your self-respect for a few minutes of relief. What connection would actually care for you tonight?'
+    }
+    return 'I am with you, and I want the honest version. You do not need shame to change. What is one action that would make tomorrow easier instead of harder?'
+  }
+  if (emotionalSignal === 'shame_self_attack') {
+    return 'No. You are not going to use shame as a weapon against yourself. Keep the facts, drop the self-attack, and choose the repair move.'
+  }
+  if (emotionalSignal === 'avoidance_excuses') {
+    return 'That is avoidance dressed up as reasoning. Cut the negotiation. Pick the smallest useful action and do it before your brain reopens the debate.'
   }
   return 'That thought loop is not helping you. Strip this down to facts, cut one bad option, and commit to one useful move right now.'
 }
 
-async function generateReply(email, listenerId, message) {
+async function generateReply(email, listenerId, message, emotionalSignal, memory) {
   if (!openai) {
-    return { reply: fallbackReply(listenerId), source: 'fallback' }
+    return { reply: fallbackReply(listenerId, emotionalSignal), source: 'fallback' }
   }
   const recent = await getRecentMessages(email, listenerId)
+  const conversation = recent.map((item) => ({
+    role: item.role === 'assistant' ? 'assistant' : 'user',
+    content: item.text,
+  }))
+  if (!recent.length || recent[recent.length - 1].text !== message || recent[recent.length - 1].role === 'assistant') {
+    conversation.push({ role: 'user', content: message })
+  }
   const messages = [
-    { role: 'system', content: buildSystemPrompt(listenerId) },
-    ...recent.map((item) => ({
-      role: item.role === 'assistant' ? 'assistant' : 'user',
-      content: item.text,
-    })),
-    { role: 'user', content: message },
+    { role: 'system', content: buildSystemPrompt(listenerId, emotionalSignal, memory) },
+    ...conversation,
   ]
 
   let tools
@@ -567,14 +981,14 @@ async function generateReply(email, listenerId, message) {
       if (!toolCalls.length) {
         const reply = assistantMessage?.content?.trim()
         if (!reply) {
-          return { reply: fallbackReply(listenerId), source: 'fallback' }
+          return { reply: fallbackReply(listenerId, emotionalSignal), source: 'fallback' }
         }
         return { reply, source: tools?.length ? 'openai-composio' : 'openai' }
       }
 
       if (!composioUserId || iteration === composioMaxToolIterations) {
         log('error', 'composio tool call limit reached', { listenerId, toolCalls: toolCalls.length })
-        return { reply: fallbackReply(listenerId), source: 'fallback-tool-limit' }
+        return { reply: fallbackReply(listenerId, emotionalSignal), source: 'fallback-tool-limit' }
       }
 
       messages.push(assistantMessage)
@@ -583,8 +997,10 @@ async function generateReply(email, listenerId, message) {
     }
   } catch (error) {
     log('error', 'openai or composio request failed', { error: error.message, listenerId })
-    return { reply: fallbackReply(listenerId), source: 'fallback-error' }
+    return { reply: fallbackReply(listenerId, emotionalSignal), source: 'fallback-error' }
   }
+
+  return { reply: fallbackReply(listenerId, emotionalSignal), source: 'fallback' }
 }
 
 // ---------------------------------------------------------------------------
@@ -609,6 +1025,7 @@ async function createCheckoutSession(email) {
     mode: 'subscription',
     customer: customerId,
     line_items: [{ price: stripePriceId, quantity: 1 }],
+    subscription_data: { trial_period_days: 7 },
     success_url: `${appUrl}?checkout=success`,
     cancel_url: `${appUrl}?checkout=cancelled`,
     allow_promotion_codes: true,
@@ -662,13 +1079,23 @@ function buildCorsHeaders(req) {
   }
 }
 
+function buildSecurityHeaders() {
+  return {
+    'Strict-Transport-Security': 'max-age=31536000',
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()',
+  }
+}
+
 function json(req, res, status, body) {
-  res.writeHead(status, { 'Content-Type': 'application/json', ...buildCorsHeaders(req) })
+  res.writeHead(status, { 'Content-Type': 'application/json', ...buildSecurityHeaders(), ...buildCorsHeaders(req) })
   res.end(JSON.stringify(body))
 }
 
 function send(req, res, status, body, headers = {}) {
-  res.writeHead(status, { ...buildCorsHeaders(req), ...headers })
+  res.writeHead(status, { ...buildSecurityHeaders(), ...buildCorsHeaders(req), ...headers })
   res.end(body)
 }
 
@@ -727,7 +1154,7 @@ function isValidEmail(email) {
 }
 
 function sanitizeListenerId(value) {
-  return ['steady', 'coach', 'straight'].includes(value) ? value : 'steady'
+  return listenerAliases[String(value || '').trim()] || 'coach-w'
 }
 
 // ---------------------------------------------------------------------------
@@ -823,6 +1250,19 @@ const server = http.createServer(async (req, res) => {
     if (!session) return
     const user = await getUser(session.email)
     return json(req, res, 200, { ok: true, user: serializeUser(user) })
+  }
+
+  // GET /api/coach-memory
+  if (req.method === 'GET' && url.pathname === '/api/coach-memory') {
+    const session = await requireSession(req, res)
+    if (!session) return
+    const listenerParam = url.searchParams.get('listenerId')
+    if (listenerParam) {
+      const listenerId = sanitizeListenerId(String(listenerParam))
+      return json(req, res, 200, { ok: true, memory: await getCoachMemory(session.email, listenerId) })
+    }
+    const memories = await Promise.all(Object.keys(coachProfiles).map((listenerId) => getCoachMemory(session.email, listenerId)))
+    return json(req, res, 200, { ok: true, memory: memories[0], memories })
   }
 
   // GET /api/chat/history
@@ -931,21 +1371,31 @@ const server = http.createServer(async (req, res) => {
       }
       await saveChatMessage(session.email, listenerId, 'user', 'You', text)
 
-      let escalated = false;
-      let reply, source;
+      const emotionalSignal = detectEmotionalSignal(text)
+      let escalated = false
+      let reply
+      let source
+      let memoryUpdated = false
 
-      if (detectCrisis(text)) {
-        escalated = true;
-        reply = "It sounds like you are going through a really difficult time. Please reach out to a crisis lifeline like 988 in the US and Canada, or text HOME to 741741. You don't have to be alone in this.";
-        source = "escalation";
+      if (emotionalSignal === 'crisis_safety_risk') {
+        escalated = true
+        reply = "It sounds like you are going through a really difficult time. Please reach out to a crisis lifeline like 988 in the US and Canada, or text HOME to 741741. You don't have to be alone in this."
+        source = 'escalation'
       } else {
-        const result = await generateReply(session.email, listenerId, text);
-        reply = result.reply;
-        source = result.source;
+        const memory = await getCoachMemory(session.email, listenerId)
+        const result = await generateReply(session.email, listenerId, text, emotionalSignal, memory)
+        reply = result.reply
+        source = result.source
+        try {
+          const memoryResult = await updateCoachMemory(session.email, listenerId, text, emotionalSignal)
+          memoryUpdated = memoryResult.updated
+        } catch (memoryError) {
+          log('error', 'coach memory update failed', { error: memoryError.message, listenerId })
+        }
       }
 
-      await saveChatMessage(session.email, listenerId, 'assistant', listenerId, reply)
-      return json(req, res, 200, { ok: true, reply, source, escalated })
+      await saveChatMessage(session.email, listenerId, 'assistant', getCoachProfile(listenerId).label, reply)
+      return json(req, res, 200, { ok: true, reply, source, escalated, emotionalSignal, memoryUpdated })
     } catch (error) {
       return json(req, res, 400, { error: error.message })
     }
@@ -961,7 +1411,7 @@ const server = http.createServer(async (req, res) => {
       }
       const record = {
         email,
-        incentive: 'Founding member rate locked for 3 months + Northstar reset pack',
+        incentive: 'One week free trial, then $19/month + Sentryharbor reset pack',
         capturedAt: new Date().toISOString(),
       }
       await db.run(
@@ -978,7 +1428,7 @@ const server = http.createServer(async (req, res) => {
 })
 
 server.listen(port, () => {
-  log('info', 'northstar api listening', {
+  log('info', 'sentryharbor api listening', {
     port,
     database: databaseUrl ? 'postgres' : 'sqlite',
     nodeEnv: process.env.NODE_ENV || 'development',

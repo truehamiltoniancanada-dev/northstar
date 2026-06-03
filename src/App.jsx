@@ -1,70 +1,153 @@
 import React, { useState } from 'react'
-import { Gift } from 'lucide-react'
+import { Analytics } from '@vercel/analytics/react'
+import { ArrowRight, Gift, X } from 'lucide-react'
 import { coaches } from './config/coaches'
 import HomeScreen from './screens/HomeScreen'
 import CoachSelectionScreen from './screens/CoachSelectionScreen'
 import MainExperienceScreen from './screens/MainExperienceScreen'
 
+const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL
+const defaultApiBaseUrl = configuredApiBaseUrl || `${window.location.protocol}//${window.location.hostname}:8787/api`
+
 export default function App() {
   const [screen, setScreen] = useState('home')
   const [selectedCoachId, setSelectedCoachId] = useState(coaches[0].id)
+  const [showFoundingOffer, setShowFoundingOffer] = useState(false)
+  const [offerEmail, setOfferEmail] = useState('')
+  const [offerCaptured, setOfferCaptured] = useState(false)
+  const [offerError, setOfferError] = useState('')
+  const [offerLoading, setOfferLoading] = useState(false)
+
+  async function captureFoundingOffer() {
+    if (!offerEmail.trim()) return
+    setOfferError('')
+    setOfferLoading(true)
+    try {
+      const response = await fetch(`${defaultApiBaseUrl}/email-capture`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: offerEmail }),
+      })
+      const data = await response.json()
+      if (!response.ok) {
+        throw new Error(data.error || 'Unable to claim the offer right now')
+      }
+      setOfferCaptured(true)
+    } catch (error) {
+      setOfferError(error.message)
+    } finally {
+      setOfferLoading(false)
+    }
+  }
+
+  function openMembershipFlow() {
+    setScreen('main')
+  }
 
   return (
-    <div className="app therapy-app product-app">
-      <div className="ambient ambient-one" />
-      <div className="ambient ambient-two" />
+    <>
+      <div className="app therapy-app product-app">
+        <div className="ambient ambient-one" />
+        <div className="ambient ambient-two" />
 
-      <div className="shell product-shell">
-        <div className="constellation constellation-one" />
-        <div className="constellation constellation-two" />
+        <div className="shell product-shell">
+          <div className="constellation constellation-one" />
+          <div className="constellation constellation-two" />
 
-        <header className="topbar reveal reveal-delay-1">
-          <div className="brand-lockup reveal reveal-delay-1">
-            <div className="brand-mark" aria-hidden="true">
-              <svg className="brand-logo" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <defs>
-                  <linearGradient id="northstarGradient" x1="8" y1="8" x2="56" y2="56" gradientUnits="userSpaceOnUse">
-                    <stop stopColor="#201517" />
-                    <stop offset="0.58" stopColor="#5D2847" />
-                    <stop offset="1" stopColor="#F09D48" />
-                  </linearGradient>
-                </defs>
-                <rect x="2" y="2" width="60" height="60" rx="18" className="brand-logo-bg" />
-                <path d="M32 12V52" className="brand-logo-line" />
-                <path d="M12 32H52" className="brand-logo-line" />
-                <path d="M20 20L44 44" className="brand-logo-soft" />
-                <path d="M44 20L20 44" className="brand-logo-soft" />
-                <circle cx="32" cy="20" r="6" className="brand-logo-star" />
-                <path d="M24 46L30.5 30H33.8L40 46H35.8L31.9 35.2L27.7 46H24Z" className="brand-logo-letter" />
-              </svg>
+          <header className="topbar reveal reveal-delay-1">
+            <div className="brand-lockup reveal reveal-delay-1">
+              <div className="brand-mark">
+                <img
+                  className="brand-logo-image"
+                  src="/sentryharbor-logo.jpg"
+                  alt="Sentryharbor logo"
+                  onError={(event) => {
+                    event.currentTarget.style.display = 'none'
+                  }}
+                />
+                <svg className="brand-logo brand-logo-fallback" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                  <defs>
+                    <linearGradient id="sentryharborGradient" x1="8" y1="8" x2="56" y2="56" gradientUnits="userSpaceOnUse">
+                      <stop stopColor="#201517" />
+                      <stop offset="0.58" stopColor="#5D2847" />
+                      <stop offset="1" stopColor="#F09D48" />
+                    </linearGradient>
+                  </defs>
+                  <rect x="2" y="2" width="60" height="60" rx="18" className="brand-logo-bg" />
+                  <path d="M32 12V52" className="brand-logo-line" />
+                  <path d="M12 32H52" className="brand-logo-line" />
+                  <path d="M20 20L44 44" className="brand-logo-soft" />
+                  <path d="M44 20L20 44" className="brand-logo-soft" />
+                  <circle cx="32" cy="20" r="6" className="brand-logo-star" />
+                  <path d="M24 46L30.5 30H33.8L40 46H35.8L31.9 35.2L27.7 46H24Z" className="brand-logo-letter" />
+                </svg>
+              </div>
+              <div>
+                <div className="brand-name">Sentryharbor</div>
+                <div className="brand-sub">a steady guide for difficult nights</div>
+              </div>
             </div>
-            <div>
-              <div className="brand-name">Northstar</div>
-              <div className="brand-sub">a steady guide for difficult nights</div>
+            <div className="session-pills">
+              <button className="session-pill session-pill-button" onClick={() => setShowFoundingOffer(true)}>
+                <Gift size={14} /> Founding offer
+              </button>
+              <span className="session-pill">7-day free trial</span>
+              <span className="session-pill">$19/month after</span>
+              <button className="session-pill session-pill-button muted" onClick={openMembershipFlow}>
+                support membership
+              </button>
             </div>
-          </div>
-          <div className="session-pills">
-            <span className="session-pill session-pill-button">
-              <Gift size={14} /> Founding offer
-            </span>
-            <span className="session-pill">$24/month</span>
-            <span className="session-pill muted">support membership</span>
-          </div>
-        </header>
+          </header>
 
-        {screen === 'home' ? <HomeScreen onContinue={() => setScreen('coach-selection')} /> : null}
+          {screen === 'home' ? <HomeScreen onContinue={() => setScreen('coach-selection')} /> : null}
 
-        {screen === 'coach-selection' ? (
-          <CoachSelectionScreen
-            selectedCoachId={selectedCoachId}
-            onSelectCoach={setSelectedCoachId}
-            onContinue={() => setScreen('main')}
-            onBack={() => setScreen('home')}
-          />
-        ) : null}
+          {screen === 'coach-selection' ? (
+            <CoachSelectionScreen
+              selectedCoachId={selectedCoachId}
+              onSelectCoach={setSelectedCoachId}
+              onContinue={() => setScreen('main')}
+              onBack={() => setScreen('home')}
+            />
+          ) : null}
 
-        {screen === 'main' ? <MainExperienceScreen selectedCoachId={selectedCoachId} onChangeCoach={() => setScreen('coach-selection')} /> : null}
+          {screen === 'main' ? <MainExperienceScreen selectedCoachId={selectedCoachId} onChangeCoach={() => setScreen('coach-selection')} /> : null}
+        </div>
       </div>
-    </div>
+      {showFoundingOffer ? (
+        <div className="modal-backdrop" role="presentation">
+          <div className="modal-card" role="dialog" aria-modal="true" aria-labelledby="founding-offer-title">
+            <button className="modal-close" onClick={() => setShowFoundingOffer(false)} aria-label="Close founding offer">
+              <X size={18} />
+            </button>
+            <div className="modal-icon">
+              <Gift size={22} />
+            </div>
+            <span className="eyebrow">Founding member offer</span>
+            <h2 id="founding-offer-title" className="modal-title">
+              Start with a calmer first week.
+            </h2>
+            <p className="product-copy">
+              Claim the Sentryharbor launch offer: one week free, then $19/month, plus the Sentryharbor Reset Pack with grounding
+              prompts, recovery check-ins, and a first-week ritual plan.
+            </p>
+            {offerCaptured ? (
+              <div className="api-banner">You are on the founding member list. We will send launch updates to {offerEmail}.</div>
+            ) : (
+              <>
+                <label className="field-label">
+                  Best email
+                  <input className="text-input" value={offerEmail} onChange={(event) => setOfferEmail(event.target.value)} placeholder="you@example.com" />
+                </label>
+                {offerError ? <div className="api-banner">{offerError}</div> : null}
+                <button className="button primary auth-button" onClick={captureFoundingOffer} disabled={offerLoading}>
+                  {offerLoading ? 'Claiming...' : 'Claim the offer'} <ArrowRight size={16} />
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      ) : null}
+      <Analytics />
+    </>
   )
 }

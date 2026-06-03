@@ -167,14 +167,28 @@ a {
   box-shadow: 0 14px 34px rgba(93, 40, 71, 0.28);
 }
 
-.brand-logo {
+.brand-logo,
+.brand-logo-image {
   width: 100%;
   height: 100%;
   display: block;
 }
 
+.brand-logo-image {
+  grid-area: 1 / 1;
+  position: relative;
+  z-index: 1;
+  object-fit: cover;
+  object-position: center;
+  border-radius: 18px;
+}
+
+.brand-logo-fallback {
+  grid-area: 1 / 1;
+}
+
 .brand-logo-bg {
-  fill: url(#northstarGradient);
+  fill: url(#sentryharborGradient);
 }
 
 .brand-logo-line {
@@ -222,6 +236,7 @@ a {
   background: rgba(255, 255, 255, 0.62);
   border: 1px solid rgba(23, 19, 17, 0.08);
   font-weight: 700;
+  color: var(--ink);
 }
 
 .session-pill-button {
@@ -229,6 +244,15 @@ a {
   align-items: center;
   gap: 8px;
   cursor: pointer;
+}
+
+.session-pill-button:hover {
+  transform: translateY(-1px);
+}
+
+.session-pill-button:focus-visible {
+  outline: 3px solid rgba(155, 49, 95, 0.28);
+  outline-offset: 3px;
 }
 
 .session-pill.muted {
@@ -316,7 +340,9 @@ a {
 }
 
 .gate-price span {
-  margin-left: 8px;
+  display: block;
+  margin-left: 0;
+  margin-top: 10px;
   font-size: 1rem;
   color: var(--muted);
   letter-spacing: 0;
@@ -384,6 +410,53 @@ a {
   margin: 18px 0 0;
   line-height: 1.65;
   font-size: 1.02rem;
+}
+
+.intro-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 22px;
+}
+
+.intro-list div,
+.coach-insight-card {
+  border: 1px solid rgba(23, 19, 17, 0.08);
+  background: rgba(255, 255, 255, 0.58);
+  border-radius: 20px;
+  padding: 14px 16px;
+}
+
+.intro-list strong,
+.coach-insight-card strong {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.intro-list span,
+.coach-detail,
+.coach-memory-note,
+.coach-insight-card span {
+  color: var(--muted);
+  line-height: 1.5;
+  font-size: 0.92rem;
+}
+
+.coach-insight-card {
+  display: grid;
+  gap: 6px;
+  margin-top: 20px;
+}
+
+.coach-insight-card.calm {
+  background: linear-gradient(180deg, rgba(163, 199, 181, 0.22), rgba(255, 255, 255, 0.62));
+}
+
+.coach-insight-card.coach {
+  background: linear-gradient(180deg, rgba(246, 198, 79, 0.2), rgba(255, 255, 255, 0.62));
+}
+
+.coach-insight-card.straight {
+  background: linear-gradient(180deg, rgba(255, 135, 93, 0.18), rgba(255, 255, 255, 0.62));
 }
 
 .progress-row {
@@ -464,6 +537,15 @@ a {
 .listener-option p {
   margin: 8px 0 0;
   line-height: 1.5;
+}
+
+.coach-detail,
+.coach-memory-note {
+  margin-top: 10px;
+}
+
+.coach-memory-note {
+  font-weight: 700;
 }
 
 .listener-option.selected {
@@ -756,9 +838,11 @@ a {
 }
 
 .membership-price span {
+  display: block;
   font-size: 1rem;
   letter-spacing: 0;
-  margin-left: 8px;
+  margin-left: 0;
+  margin-top: 10px;
   color: rgba(255, 247, 240, 0.74);
 }
 
