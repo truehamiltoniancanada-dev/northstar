@@ -236,6 +236,7 @@ a {
   background: rgba(255, 255, 255, 0.62);
   border: 1px solid rgba(23, 19, 17, 0.08);
   font-weight: 700;
+  color: var(--ink);
 }
 
 .session-pill-button {
@@ -243,6 +244,15 @@ a {
   align-items: center;
   gap: 8px;
   cursor: pointer;
+}
+
+.session-pill-button:hover {
+  transform: translateY(-1px);
+}
+
+.session-pill-button:focus-visible {
+  outline: 3px solid rgba(155, 49, 95, 0.28);
+  outline-offset: 3px;
 }
 
 .session-pill.muted {

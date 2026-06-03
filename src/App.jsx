@@ -1,14 +1,48 @@
 import React, { useState } from 'react'
 import { Analytics } from '@vercel/analytics/react'
-import { Gift } from 'lucide-react'
+import { ArrowRight, Gift, X } from 'lucide-react'
 import { coaches } from './config/coaches'
 import HomeScreen from './screens/HomeScreen'
 import CoachSelectionScreen from './screens/CoachSelectionScreen'
 import MainExperienceScreen from './screens/MainExperienceScreen'
 
+const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL
+const defaultApiBaseUrl = configuredApiBaseUrl || `${window.location.protocol}//${window.location.hostname}:8787/api`
+
 export default function App() {
   const [screen, setScreen] = useState('home')
   const [selectedCoachId, setSelectedCoachId] = useState(coaches[0].id)
+  const [showFoundingOffer, setShowFoundingOffer] = useState(false)
+  const [offerEmail, setOfferEmail] = useState('')
+  const [offerCaptured, setOfferCaptured] = useState(false)
+  const [offerError, setOfferError] = useState('')
+  const [offerLoading, setOfferLoading] = useState(false)
+
+  async function captureFoundingOffer() {
+    if (!offerEmail.trim()) return
+    setOfferError('')
+    setOfferLoading(true)
+    try {
+      const response = await fetch(`${defaultApiBaseUrl}/email-capture`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: offerEmail }),
+      })
+      const data = await response.json()
+      if (!response.ok) {
+        throw new Error(data.error || 'Unable to claim the offer right now')
+      }
+      setOfferCaptured(true)
+    } catch (error) {
+      setOfferError(error.message)
+    } finally {
+      setOfferLoading(false)
+    }
+  }
+
+  function openMembershipFlow() {
+    setScreen('main')
+  }
 
   return (
     <>
@@ -54,12 +88,14 @@ export default function App() {
               </div>
             </div>
             <div className="session-pills">
-              <span className="session-pill session-pill-button">
+              <button className="session-pill session-pill-button" onClick={() => setShowFoundingOffer(true)}>
                 <Gift size={14} /> Founding offer
-              </span>
+              </button>
               <span className="session-pill">7-day free trial</span>
               <span className="session-pill">$19/month after</span>
-              <span className="session-pill muted">support membership</span>
+              <button className="session-pill session-pill-button muted" onClick={openMembershipFlow}>
+                support membership
+              </button>
             </div>
           </header>
 
@@ -77,6 +113,40 @@ export default function App() {
           {screen === 'main' ? <MainExperienceScreen selectedCoachId={selectedCoachId} onChangeCoach={() => setScreen('coach-selection')} /> : null}
         </div>
       </div>
+      {showFoundingOffer ? (
+        <div className="modal-backdrop" role="presentation">
+          <div className="modal-card" role="dialog" aria-modal="true" aria-labelledby="founding-offer-title">
+            <button className="modal-close" onClick={() => setShowFoundingOffer(false)} aria-label="Close founding offer">
+              <X size={18} />
+            </button>
+            <div className="modal-icon">
+              <Gift size={22} />
+            </div>
+            <span className="eyebrow">Founding member offer</span>
+            <h2 id="founding-offer-title" className="modal-title">
+              Start with a calmer first week.
+            </h2>
+            <p className="product-copy">
+              Claim the Sentryharbor launch offer: one week free, then $19/month, plus the Sentryharbor Reset Pack with grounding
+              prompts, recovery check-ins, and a first-week ritual plan.
+            </p>
+            {offerCaptured ? (
+              <div className="api-banner">You are on the founding member list. We will send launch updates to {offerEmail}.</div>
+            ) : (
+              <>
+                <label className="field-label">
+                  Best email
+                  <input className="text-input" value={offerEmail} onChange={(event) => setOfferEmail(event.target.value)} placeholder="you@example.com" />
+                </label>
+                {offerError ? <div className="api-banner">{offerError}</div> : null}
+                <button className="button primary auth-button" onClick={captureFoundingOffer} disabled={offerLoading}>
+                  {offerLoading ? 'Claiming...' : 'Claim the offer'} <ArrowRight size={16} />
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      ) : null}
       <Analytics />
     </>
   )
