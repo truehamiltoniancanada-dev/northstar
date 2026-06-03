@@ -1079,13 +1079,23 @@ function buildCorsHeaders(req) {
   }
 }
 
+function buildSecurityHeaders() {
+  return {
+    'Strict-Transport-Security': 'max-age=31536000',
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()',
+  }
+}
+
 function json(req, res, status, body) {
-  res.writeHead(status, { 'Content-Type': 'application/json', ...buildCorsHeaders(req) })
+  res.writeHead(status, { 'Content-Type': 'application/json', ...buildSecurityHeaders(), ...buildCorsHeaders(req) })
   res.end(JSON.stringify(body))
 }
 
 function send(req, res, status, body, headers = {}) {
-  res.writeHead(status, { ...buildCorsHeaders(req), ...headers })
+  res.writeHead(status, { ...buildSecurityHeaders(), ...buildCorsHeaders(req), ...headers })
   res.end(body)
 }
 
