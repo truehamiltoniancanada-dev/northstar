@@ -167,9 +167,9 @@ VITE_API_BASE_URL=https://api.sentryharbor.com/api
 
 ```env
 PORT=8787
-APP_URL=https://sentryharbor.com
+APP_URL=https://www.sentryharbor.com
 API_BASE_URL=https://api.sentryharbor.com
-CORS_ORIGIN=https://sentryharbor.com
+CORS_ORIGIN=https://www.sentryharbor.com
 AUTH_RATE_LIMIT_WINDOW_MS=900000
 AUTH_RATE_LIMIT_MAX=5
 DEV_AUTH_CODES=false

@@ -5,6 +5,17 @@
       "has": [
         {
           "type": "host",
+          "value": "sentryharbor.com"
+        }
+      ],
+      "destination": "https://www.sentryharbor.com/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
           "value": ".*northstar.*"
         }
       ],

@@ -50,9 +50,9 @@ Required backend environment variables:
 
 ```bash
 PORT=8787
-APP_URL=https://sentryharbor.com
+APP_URL=https://www.sentryharbor.com
 API_BASE_URL=https://api.sentryharbor.com
-CORS_ORIGIN=https://sentryharbor.com
+CORS_ORIGIN=https://www.sentryharbor.com
 DATABASE_URL=postgres://...
 STRIPE_SECRET_KEY=***
 STRIPE_WEBHOOK_SECRET=***

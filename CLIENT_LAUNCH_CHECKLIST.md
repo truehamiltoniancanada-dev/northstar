@@ -13,9 +13,9 @@ Everything in this document requires action on your end. The code is ready to de
 | Variable | Value |
 |---|---|
 | `PORT` | `8787` |
-| `APP_URL` | `https://sentryharbor.com` |
+| `APP_URL` | `https://www.sentryharbor.com` |
 | `API_BASE_URL` | Your backend URL (e.g. `https://api.sentryharbor.com`) |
-| `CORS_ORIGIN` | `https://sentryharbor.com` |
+| `CORS_ORIGIN` | `https://www.sentryharbor.com` |
 | `DATABASE_URL` | Set automatically by the Railway Postgres plugin |
 | `DEV_AUTH_CODES` | `false` |
 | `OPENAI_API_KEY` | Your OpenAI key |
@@ -63,7 +63,8 @@ This step is required for subscription activation to work after payment.
 
 Once both services are live, verify end-to-end:
 
-- [ ] Visit `https://sentryharbor.com` — the app loads
+- [ ] Visit `https://www.sentryharbor.com` — the app loads securely
+- [ ] Visit `https://sentryharbor.com` — it redirects to `https://www.sentryharbor.com`
 - [ ] Enter your email → receive a verification code email
 - [ ] Sign in with the code
 - [ ] Click Subscribe → Stripe checkout opens with a 7-day free trial and then $19/month

@@ -39,9 +39,9 @@ Healthcheck path is set to `/api/health` in `railway.json` so Railway marks the 
 Set these in the Railway service:
 
 ```bash
-APP_URL=https://sentryharbor.com
+APP_URL=https://www.sentryharbor.com
 API_BASE_URL=https://api.sentryharbor.com
-CORS_ORIGIN=https://sentryharbor.com
+CORS_ORIGIN=https://www.sentryharbor.com
 DATABASE_URL=postgres://user:password@host:5432/sentryharbor
 STRIPE_SECRET_KEY=***
 STRIPE_WEBHOOK_SECRET=***
