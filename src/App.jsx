@@ -20,8 +20,16 @@ export default function App() {
 
         <header className="topbar reveal reveal-delay-1">
           <div className="brand-lockup reveal reveal-delay-1">
-            <div className="brand-mark" aria-hidden="true">
-              <svg className="brand-logo" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <div className="brand-mark">
+              <img
+                className="brand-logo-image"
+                src="/sentryharbor-logo.jpg"
+                alt="Sentryharbor logo"
+                onError={(event) => {
+                  event.currentTarget.style.display = 'none'
+                }}
+              />
+              <svg className="brand-logo brand-logo-fallback" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                 <defs>
                   <linearGradient id="sentryharborGradient" x1="8" y1="8" x2="56" y2="56" gradientUnits="userSpaceOnUse">
                     <stop stopColor="#201517" />

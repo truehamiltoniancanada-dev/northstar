@@ -167,10 +167,24 @@ a {
   box-shadow: 0 14px 34px rgba(93, 40, 71, 0.28);
 }
 
-.brand-logo {
+.brand-logo,
+.brand-logo-image {
   width: 100%;
   height: 100%;
   display: block;
+}
+
+.brand-logo-image {
+  grid-area: 1 / 1;
+  position: relative;
+  z-index: 1;
+  object-fit: cover;
+  object-position: center;
+  border-radius: 18px;
+}
+
+.brand-logo-fallback {
+  grid-area: 1 / 1;
 }
 
 .brand-logo-bg {
